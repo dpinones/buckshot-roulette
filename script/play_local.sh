@@ -25,6 +25,13 @@ MAX_TURNS=150
 
 ITEM_NAMES=("NONE" "MAGNIFYING_GLASS" "BEER" "HANDSAW" "HANDCUFFS" "CIGARETTES" "INVERTER")
 
+# Delay entre acciones: modo espectador = 5s, normal = 0.2s
+if [ "${SPECTATE:-0}" = "1" ]; then
+  PLAY_DELAY=5
+else
+  PLAY_DELAY=0.2
+fi
+
 # ── Helpers ─────────────────────────────────────────────────
 
 ANVIL_PID=""
@@ -422,7 +429,7 @@ while [ $TURN -lt $MAX_TURNS ]; do
     continue
   fi
 
-  sleep 0.2
+  sleep $PLAY_DELAY
 done
 
 # ── 5. Resultado final ─────────────────────────────────────

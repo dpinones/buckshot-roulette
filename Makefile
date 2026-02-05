@@ -1,4 +1,4 @@
-.PHONY: build test fmt snapshot clean deploy deploy-local verify play play-testnet install
+.PHONY: build test fmt snapshot clean deploy deploy-local verify play play-testnet play-spectate install frontend-install frontend-dev spectate
 
 # ── Config ──────────────────────────────────────────────────
 ANVIL_RPC  := http://127.0.0.1:8545
@@ -51,6 +51,9 @@ deploy-local:
 play:
 	bash script/play_local.sh
 
+play-spectate:
+	SPECTATE=1 bash script/play_local.sh
+
 play-testnet:
 	bash script/play_testnet.sh
 
@@ -61,6 +64,22 @@ deploy:
 		--rpc-url $(MONAD_RPC) \
 		--account monad-deployer \
 		--broadcast
+
+# ── Frontend ───────────────────────────────────────────────
+
+frontend-install:
+	cd frontend && npm install
+
+frontend-dev:
+	cd frontend && npm run dev
+
+spectate:
+	@echo "Modo espectador:"
+	@echo "  1. Terminal 1: make frontend-dev"
+	@echo "  2. Terminal 2: make play-spectate"
+	@echo "  Frontend en http://localhost:5173"
+
+# ── Monad Testnet ───────────────────────────────────────────
 
 # Verify: make verify ADDR=0x... CONTRACT=src/BuckshotGame.sol:BuckshotGame
 verify:

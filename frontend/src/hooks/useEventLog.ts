@@ -1,0 +1,132 @@
+import { useEffect, useRef, useState } from 'react'
+import { type Address } from 'viem'
+import { type GameState } from './useGameState'
+import { ITEM_NAMES, Phase } from '../config/contracts'
+
+export interface GameEvent {
+  id: number
+  type: 'shot' | 'item' | 'round' | 'turn' | 'gameover' | 'info'
+  message: string
+  timestamp: number
+}
+
+function shortAddr(addr: Address): string {
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+}
+
+function playerLabel(addr: Address, players: readonly Address[]): string {
+  const idx = players.findIndex(
+    (p) => p.toLowerCase() === addr.toLowerCase()
+  )
+  return idx >= 0 ? `P${idx + 1}` : shortAddr(addr)
+}
+
+export function useEventLog(
+  state: GameState | null,
+  prevState: GameState | null
+) {
+  const [events, setEvents] = useState<GameEvent[]>([])
+  const nextId = useRef(0)
+
+  const addEvent = (type: GameEvent['type'], message: string) => {
+    setEvents((prev) => [
+      ...prev,
+      { id: nextId.current++, type, message, timestamp: Date.now() },
+    ])
+  }
+
+  useEffect(() => {
+    if (!state || !prevState) return
+    if (!state.players.length) return
+
+    const players = state.players
+
+    // Round change
+    if (state.currentRound !== prevState.currentRound && state.currentRound > 0) {
+      const maxHp = state.currentRound === 1 ? 2 : state.currentRound === 2 ? 4 : 5
+      addEvent('round', `Round ${state.currentRound} (Max HP: ${maxHp})`)
+    }
+
+    // HP changes (damage)
+    for (let i = 0; i < players.length; i++) {
+      const prevHp = prevState.hpList[i] ?? 0
+      const currHp = state.hpList[i] ?? 0
+      if (currHp < prevHp) {
+        const dmg = prevHp - currHp
+        addEvent(
+          'shot',
+          `BANG! ${playerLabel(players[i], players)} took ${dmg} damage (${prevHp} -> ${currHp} HP)`
+        )
+      }
+      if (currHp > prevHp && state.currentRound === prevState.currentRound) {
+        addEvent(
+          'item',
+          `${playerLabel(players[i], players)} healed +${currHp - prevHp} HP`
+        )
+      }
+    }
+
+    // Item changes
+    for (const player of players) {
+      const key = player.toLowerCase()
+      const prevItems = prevState.playerItems[key] ?? []
+      const currItems = state.playerItems[key] ?? []
+      if (currItems.length < prevItems.length) {
+        // Find which item was used (diff)
+        const prevCounts: Record<number, number> = {}
+        const currCounts: Record<number, number> = {}
+        for (const item of prevItems) prevCounts[item] = (prevCounts[item] ?? 0) + 1
+        for (const item of currItems) currCounts[item] = (currCounts[item] ?? 0) + 1
+        for (const [itemStr, count] of Object.entries(prevCounts)) {
+          const itemNum = Number(itemStr)
+          const diff = count - (currCounts[itemNum] ?? 0)
+          if (diff > 0 && itemNum > 0) {
+            addEvent(
+              'item',
+              `${playerLabel(player, players)} used ${ITEM_NAMES[itemNum]}`
+            )
+          }
+        }
+      }
+    }
+
+    // Shell count changes (shot happened if shells decreased but no round change)
+    if (
+      state.shellsRemaining < prevState.shellsRemaining &&
+      state.currentRound === prevState.currentRound
+    ) {
+      // Check if any HP changed — if not, it was a blank
+      const anyDmg = players.some(
+        (_, i) => (state.hpList[i] ?? 0) < (prevState.hpList[i] ?? 0)
+      )
+      if (!anyDmg) {
+        addEvent('shot', '*click* Blank...')
+      }
+    }
+
+    // Turn change
+    if (
+      state.currentTurn !== prevState.currentTurn &&
+      state.phase === Phase.ACTIVE
+    ) {
+      addEvent(
+        'turn',
+        `${playerLabel(state.currentTurn, players)}'s turn`
+      )
+    }
+
+    // Game over
+    if (
+      state.phase === Phase.FINISHED &&
+      prevState.phase !== Phase.FINISHED
+    ) {
+      const winnerLabel = playerLabel(state.winner, players)
+      addEvent(
+        'gameover',
+        `GAME OVER! ${winnerLabel} wins! Prize: ${state.prizePoolFormatted} ETH`
+      )
+    }
+  }, [state, prevState])
+
+  return events
+}
