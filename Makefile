@@ -1,4 +1,4 @@
-.PHONY: build test fmt snapshot clean deploy deploy-local verify play install
+.PHONY: build test fmt snapshot clean deploy deploy-local verify play play-testnet install
 
 # ── Config ──────────────────────────────────────────────────
 ANVIL_RPC  := http://127.0.0.1:8545
@@ -50,6 +50,9 @@ deploy-local:
 
 play:
 	bash script/play_local.sh
+
+play-testnet:
+	bash script/play_testnet.sh
 
 # ── Monad Testnet ───────────────────────────────────────────
 

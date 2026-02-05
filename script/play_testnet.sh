@@ -1,58 +1,110 @@
 #!/bin/bash
 #
-# Buckshot Roulette — Local 1v1 game simulation
+# Buckshot Roulette — Monad Testnet 1v1 game simulation
 #
-# Levanta Anvil, deploya contratos y ejecuta una partida completa entre 2 jugadores.
-# Los jugadores usan una IA simple: usan items estrategicamente y disparan al oponente.
+# Deploya contratos y ejecuta una partida completa entre 2 jugadores en Monad testnet.
+# Usa Foundry keystores (player1, player2) para firmar transacciones.
 #
-# Uso:   ./script/play_local.sh
-# Requisitos: foundry (forge, cast, anvil)
+# Prerequisitos:
+#   1. Crear keystores:
+#        cast wallet import player1 --interactive
+#        cast wallet import player2 --interactive
+#   2. Fondear ambas cuentas con MON del faucet: https://testnet.monad.xyz/
+#
+# Uso:   ./script/play_testnet.sh
+# Requisitos: foundry (forge, cast)
 #
 
 # ── Config ──────────────────────────────────────────────────
-export FOUNDRY_CHAIN_ID=31337
-export FOUNDRY_ETH_RPC_URL="http://127.0.0.1:8545"
-RPC="$FOUNDRY_ETH_RPC_URL"
+RPC="https://testnet-rpc.monad.xyz"
+CHAIN_ID=10143
 
-PK1="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-PK2="0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
-P1="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-P2="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-
-BUYIN="10000000000000"  # 0.00001 ETH
+BUYIN="10000000000000"  # 0.00001 MON
 GAME_ID=0
 MAX_TURNS=150
+TX_SLEEP=3       # segundos entre transacciones
+CONFIRM_SLEEP=5  # segundos despues del deploy
 
 ITEM_NAMES=("NONE" "MAGNIFYING_GLASS" "BEER" "HANDSAW" "HANDCUFFS" "CIGARETTES" "INVERTER")
 
-# ── Helpers ─────────────────────────────────────────────────
+# ── Pedir passwords primero ──────────────────────────────────
 
-ANVIL_PID=""
+echo "============================================"
+echo "   BUCKSHOT ROULETTE — Monad Testnet"
+echo "============================================"
+echo ""
 
-cleanup() {
-  if [ -n "$ANVIL_PID" ]; then
-    echo ""
-    echo "[*] Cerrando Anvil (PID $ANVIL_PID)..."
-    kill "$ANVIL_PID" 2>/dev/null
-    wait "$ANVIL_PID" 2>/dev/null
-  fi
+read -s -p "Password para player1 keystore: " PW1
+echo ""
+read -s -p "Password para player2 keystore: " PW2
+echo ""
+echo ""
+
+# ── Verificar keystores con las passwords ────────────────────
+
+P1=$(cast wallet address --account player1 --password "$PW1" 2>/dev/null) || {
+  echo "ERROR: Keystore 'player1' no encontrado o password incorrecta."
+  echo "Crea uno con: cast wallet import player1 --interactive"
+  exit 1
 }
-trap cleanup EXIT
+P2=$(cast wallet address --account player2 --password "$PW2" 2>/dev/null) || {
+  echo "ERROR: Keystore 'player2' no encontrado o password incorrecta."
+  echo "Crea uno con: cast wallet import player2 --interactive"
+  exit 1
+}
+
+echo "  Player 1: $P1"
+echo "  Player 2: $P2"
+
+# ── Verificar balances ───────────────────────────────────────
+
+BAL1=$(cast balance --rpc-url "$RPC" "$P1" --ether 2>/dev/null)
+BAL2=$(cast balance --rpc-url "$RPC" "$P2" --ether 2>/dev/null)
+
+echo "  Balance P1: $BAL1 MON"
+echo "  Balance P2: $BAL2 MON"
+echo ""
+
+# Verificar que tienen fondos minimos (al menos 0.01 MON para gas + buy-in)
+MIN_BAL="0.01"
+if [ "$(echo "$BAL1 < $MIN_BAL" | bc -l 2>/dev/null)" = "1" ]; then
+  echo "ERROR: P1 necesita al menos $MIN_BAL MON. Fondea desde: https://testnet.monad.xyz/"
+  exit 1
+fi
+if [ "$(echo "$BAL2 < $MIN_BAL" | bc -l 2>/dev/null)" = "1" ]; then
+  echo "ERROR: P2 necesita al menos $MIN_BAL MON. Fondea desde: https://testnet.monad.xyz/"
+  exit 1
+fi
+
+# ── Helpers ─────────────────────────────────────────────────
 
 cast_call() {
   cast call --rpc-url "$RPC" "$GAME_ADDR" "$@" 2>/dev/null
 }
 
 cast_send() {
-  local pk="$1"; shift
-  # Gas limit explicito para evitar fallos por diferencia de block entre estimacion y ejecucion
-  cast send --rpc-url "$RPC" --private-key "$pk" --gas-limit 1000000 "$GAME_ADDR" "$@" 2>&1
+  local account="$1"; shift
+  local pw="$1"; shift
+  cast send --rpc-url "$RPC" --account "$account" --password "$pw" --gas-limit 1000000 "$GAME_ADDR" "$@" 2>&1
 }
 
-pk_for() {
+cast_send_factory() {
+  local account="$1"; shift
+  local pw="$1"; shift
+  cast send --rpc-url "$RPC" --account "$account" --password "$pw" --gas-limit 1000000 "$FACTORY_ADDR" "$@" 2>&1
+}
+
+account_for() {
   case "$(echo "$1" | tr '[:upper:]' '[:lower:]')" in
-    "$(echo "$P1" | tr '[:upper:]' '[:lower:]')") echo "$PK1" ;;
-    *) echo "$PK2" ;;
+    "$(echo "$P1" | tr '[:upper:]' '[:lower:]')") echo "player1" ;;
+    *) echo "player2" ;;
+  esac
+}
+
+pw_for() {
+  case "$(echo "$1" | tr '[:upper:]' '[:lower:]')" in
+    "$(echo "$P1" | tr '[:upper:]' '[:lower:]')") echo "$PW1" ;;
+    *) echo "$PW2" ;;
   esac
 }
 
@@ -92,61 +144,37 @@ tx_succeeded() {
   echo "$1" | grep -q "status               1"
 }
 
-# Leer el currentRound del contrato via raw storage/getGameState
 get_round() {
-  # getGameState returns a struct; currentRound is field index 4 (0-indexed)
-  # The ABI-encoded tuple has dynamic arrays so we need to parse the raw hex
-  # Easier: just use the raw hex and find the round from known position
-  # Alternative: read the GameView struct fields
   local raw
   raw=$(cast_call "getGameState(uint256)" $GAME_ID)
   if [ -z "$raw" ]; then echo "0"; return; fi
-  # The struct layout after ABI decoding:
-  # offset 0: pointer to tuple (0x20)
-  # Then the tuple fields:
-  # +0x00: id (uint256)
-  # +0x20: pointer to players array
-  # +0x40: pointer to hpList array
-  # +0x60: pointer to alive array
-  # +0x80: currentRound (uint8, padded to 32 bytes)
-  # We skip the first 0x20 (pointer) + 0x80 = 0xa0 = 160 bytes = 320 hex chars + 2 for "0x" prefix
-  # So currentRound is at chars 322-385 (1-indexed) of the raw hex
   local round_hex="${raw:322:64}"
   local round_dec=$((16#${round_hex##+(0)}))
   echo "${round_dec:-0}"
 }
 
-# ── 1. Iniciar Anvil ───────────────────────────────────────
+# ── 1. Deploy de contratos ─────────────────────────────────
 
-echo "============================================"
-echo "   BUCKSHOT ROULETTE — Local Devnet"
-echo "============================================"
-echo ""
+echo "[1/3] Deployando contratos en Monad testnet..."
 
-# Matar instancias previas de anvil en el mismo puerto
-lsof -ti:8545 2>/dev/null | xargs kill 2>/dev/null || true
-sleep 1
-
-echo "[1/3] Iniciando Anvil..."
-anvil --silent &
-ANVIL_PID=$!
-sleep 2
-
-if ! kill -0 "$ANVIL_PID" 2>/dev/null; then
-  echo "ERROR: Anvil no pudo arrancar"
+# Obtener gas price actual para evitar que forge duplique la estimacion
+GAS_PRICE=$(cast gas-price --rpc-url "$RPC" 2>/dev/null)
+if [ -z "$GAS_PRICE" ]; then
+  echo "ERROR: No se pudo obtener el gas price"
   exit 1
 fi
-echo "  Anvil corriendo (PID $ANVIL_PID) en $RPC"
-
-# ── 2. Deploy de contratos ─────────────────────────────────
-
+echo "  Gas price: $((GAS_PRICE / 1000000000)) gwei"
+echo "  (esto puede tardar ~30s)"
 echo ""
-echo "[2/3] Deployando contratos..."
 
 DEPLOY_OUTPUT=$(forge script script/Deploy.s.sol \
   --rpc-url "$RPC" \
-  --private-key "$PK1" \
-  --broadcast 2>&1)
+  --account player1 \
+  --password "$PW1" \
+  --with-gas-price "$GAS_PRICE" \
+  --broadcast \
+  --slow \
+  --timeout 120 2>&1) || true
 
 GAME_ADDR=$(echo "$DEPLOY_OUTPUT" | grep "BuckshotGame deployed" | awk '{print $NF}')
 FACTORY_ADDR=$(echo "$DEPLOY_OUTPUT" | grep "GameFactory deployed" | awk '{print $NF}')
@@ -158,48 +186,51 @@ if [ -z "$GAME_ADDR" ]; then
   exit 1
 fi
 
-# Esperar a que los contratos esten confirmados on-chain
-sleep 2
+# Verificar que los contratos existen on-chain
+sleep $CONFIRM_SLEEP
+GAME_CODE=$(cast code --rpc-url "$RPC" "$GAME_ADDR" 2>/dev/null)
+if [ "$GAME_CODE" = "0x" ] || [ -z "$GAME_CODE" ]; then
+  echo "ERROR: Deploy no confirmo on-chain. Revisa el output:"
+  echo "$DEPLOY_OUTPUT"
+  exit 1
+fi
 
 echo "  BuckshotGame:  $GAME_ADDR"
 echo "  GameFactory:   $FACTORY_ADDR"
 echo "  BuckshotWager: $WAGER_ADDR"
 
-# ── 3. Crear partida via Factory ───────────────────────────
+# ── 2. Crear partida via Factory ───────────────────────────
 
 echo ""
-echo "[3/3] Creando partida 1v1 via Factory (buy-in: 0.00001 ETH cada uno)..."
-
-# Helper para enviar txs al factory
-cast_send_factory() {
-  local pk="$1"; shift
-  cast send --rpc-url "$RPC" --private-key "$pk" --gas-limit 1000000 "$FACTORY_ADDR" "$@" 2>&1
-}
+echo "[2/3] Creando partida 1v1 via Factory (buy-in: 0.00001 MON cada uno)..."
 
 # P1 joins queue
 echo "  P1 joining queue..."
-JOIN1=$(cast_send_factory "$PK1" "joinQueue(uint256)" "$BUYIN" --value 0.00001ether)
+JOIN1=$(cast_send_factory "player1" "$PW1" "joinQueue(uint256)" "$BUYIN" --value 0.00001ether)
 if ! tx_succeeded "$JOIN1"; then
   echo "ERROR: P1 no pudo unirse a la queue"
   echo "$JOIN1"
   exit 1
 fi
+sleep $TX_SLEEP
 
 # P2 joins queue
 echo "  P2 joining queue..."
-JOIN2=$(cast_send_factory "$PK2" "joinQueue(uint256)" "$BUYIN" --value 0.00001ether)
+JOIN2=$(cast_send_factory "player2" "$PW2" "joinQueue(uint256)" "$BUYIN" --value 0.00001ether)
 if ! tx_succeeded "$JOIN2"; then
   echo "ERROR: P2 no pudo unirse a la queue"
   echo "$JOIN2"
   exit 1
 fi
+sleep $TX_SLEEP
 
 # Start game from queue
 GAME_CREATED=false
 for ATTEMPT in 1 2 3 4 5; do
-  START_RESULT=$(cast_send_factory "$PK1" "startGame(uint256,uint8)" "$BUYIN" 2)
+  START_RESULT=$(cast_send_factory "player1" "$PW1" "startGame(uint256,uint8)" "$BUYIN" 2)
 
   if tx_succeeded "$START_RESULT"; then
+    sleep $TX_SLEEP
     PHASE=$(cast_call "getPhase(uint256)(uint8)" $GAME_ID)
     if [ "$PHASE" = "1" ]; then
       GAME_CREATED=true
@@ -207,7 +238,7 @@ for ATTEMPT in 1 2 3 4 5; do
     fi
   fi
   echo "  Intento $ATTEMPT fallo, reintentando..."
-  sleep 1
+  sleep $TX_SLEEP
 done
 
 if [ "$GAME_CREATED" != "true" ]; then
@@ -215,12 +246,14 @@ if [ "$GAME_CREATED" != "true" ]; then
   exit 1
 fi
 
-echo "  Game ID: $GAME_ID | Prize Pool: 0.00002 ETH"
+echo "  Game ID: $GAME_ID | Prize Pool: 0.00002 MON"
 echo "  P1: $P1"
 echo "  P2: $P2"
 
-# ── 4. Jugar la partida ────────────────────────────────────
+# ── 3. Jugar la partida ────────────────────────────────────
 
+echo ""
+echo "[3/3] Jugando..."
 echo ""
 echo "============================================"
 echo "   COMIENZA LA PARTIDA"
@@ -242,12 +275,13 @@ while [ $TURN -lt $MAX_TURNS ]; do
   # Obtener turno actual
   CURRENT=$(cast_call "getCurrentTurn(uint256)(address)" $GAME_ID)
   if [ -z "$CURRENT" ] || [ "$CURRENT" = "0x0000000000000000000000000000000000000000" ]; then
-    sleep 1
+    sleep $TX_SLEEP
     continue
   fi
 
   CURRENT_NAME=$(name_for "$CURRENT")
-  CURRENT_PK=$(pk_for "$CURRENT")
+  CURRENT_ACCOUNT=$(account_for "$CURRENT")
+  CURRENT_PW=$(pw_for "$CURRENT")
   OPPONENT=$(opponent_of "$CURRENT")
   OPPONENT_NAME=$(name_for "$OPPONENT")
 
@@ -260,7 +294,7 @@ while [ $TURN -lt $MAX_TURNS ]; do
   LIVE=$(echo "$SHELLS_RAW" | head -1 | tr -d ' ')
   BLANK=$(echo "$SHELLS_RAW" | tail -1 | tr -d ' ')
 
-  # Detectar cambio de ronda leyendo del contrato
+  # Detectar cambio de ronda
   ROUND_NUM=$(get_round)
   if [ "$PREV_ROUND" != "$ROUND_NUM" ] && [ "$ROUND_NUM" -ge 1 ] 2>/dev/null; then
     echo ""
@@ -294,8 +328,9 @@ while [ $TURN -lt $MAX_TURNS ]; do
 
       # MAGNIFYING_GLASS (1) — peek shell
       if [ "$ITEM_VAL" = "1" ] && [ -z "$KNOWN_SHELL" ]; then
-        RESULT=$(cast_send "$CURRENT_PK" "useItem(uint256,uint8)" $GAME_ID "$IDX")
+        RESULT=$(cast_send "$CURRENT_ACCOUNT" "$CURRENT_PW" "useItem(uint256,uint8)" $GAME_ID "$IDX")
         if tx_succeeded "$RESULT"; then
+          sleep $TX_SLEEP
           SHELL_VAL=$(cast_call "knownShellValue(uint256,address)(uint8)" $GAME_ID "$CURRENT")
           if [ "$SHELL_VAL" = "1" ]; then
             KNOWN_SHELL="live"
@@ -310,8 +345,9 @@ while [ $TURN -lt $MAX_TURNS ]; do
 
       # CIGARETTES (5) — heal
       if [ "$ITEM_VAL" = "5" ]; then
-        RESULT=$(cast_send "$CURRENT_PK" "useItem(uint256,uint8)" $GAME_ID "$IDX")
+        RESULT=$(cast_send "$CURRENT_ACCOUNT" "$CURRENT_PW" "useItem(uint256,uint8)" $GAME_ID "$IDX")
         if tx_succeeded "$RESULT"; then
+          sleep $TX_SLEEP
           echo "  [CIGARETTES] +1 HP"
           USED=true; break
         fi
@@ -321,8 +357,9 @@ while [ $TURN -lt $MAX_TURNS ]; do
       if [ "$ITEM_VAL" = "3" ] && [ "$KNOWN_SHELL" != "blank" ]; then
         SAW=$(cast_call "sawActive(uint256,address)(bool)" $GAME_ID "$CURRENT")
         if [ "$SAW" = "false" ]; then
-          RESULT=$(cast_send "$CURRENT_PK" "useItem(uint256,uint8)" $GAME_ID "$IDX")
+          RESULT=$(cast_send "$CURRENT_ACCOUNT" "$CURRENT_PW" "useItem(uint256,uint8)" $GAME_ID "$IDX")
           if tx_succeeded "$RESULT"; then
+            sleep $TX_SLEEP
             echo "  [HANDSAW] x2 dano activado"
             USED=true; break
           fi
@@ -331,8 +368,9 @@ while [ $TURN -lt $MAX_TURNS ]; do
 
       # BEER (2) — eject shell if blank
       if [ "$ITEM_VAL" = "2" ] && [ "$KNOWN_SHELL" = "blank" ]; then
-        RESULT=$(cast_send "$CURRENT_PK" "useItem(uint256,uint8)" $GAME_ID "$IDX")
+        RESULT=$(cast_send "$CURRENT_ACCOUNT" "$CURRENT_PW" "useItem(uint256,uint8)" $GAME_ID "$IDX")
         if tx_succeeded "$RESULT"; then
+          sleep $TX_SLEEP
           echo "  [BEER] expulsa blank"
           KNOWN_SHELL=""
           USED=true; break
@@ -341,8 +379,9 @@ while [ $TURN -lt $MAX_TURNS ]; do
 
       # INVERTER (6) — flip shell if blank
       if [ "$ITEM_VAL" = "6" ] && [ "$KNOWN_SHELL" = "blank" ]; then
-        RESULT=$(cast_send "$CURRENT_PK" "useItem(uint256,uint8)" $GAME_ID "$IDX")
+        RESULT=$(cast_send "$CURRENT_ACCOUNT" "$CURRENT_PW" "useItem(uint256,uint8)" $GAME_ID "$IDX")
         if tx_succeeded "$RESULT"; then
+          sleep $TX_SLEEP
           KNOWN_SHELL="live"
           echo "  [INVERTER] blank -> live"
           USED=true; break
@@ -353,8 +392,9 @@ while [ $TURN -lt $MAX_TURNS ]; do
       if [ "$ITEM_VAL" = "4" ]; then
         SKIP=$(cast_call "skipNextTurn(uint256,address)(bool)" $GAME_ID "$OPPONENT")
         if [ "$SKIP" = "false" ]; then
-          RESULT=$(cast_send "$CURRENT_PK" "useItem(uint256,uint8)" $GAME_ID "$IDX")
+          RESULT=$(cast_send "$CURRENT_ACCOUNT" "$CURRENT_PW" "useItem(uint256,uint8)" $GAME_ID "$IDX")
           if tx_succeeded "$RESULT"; then
+            sleep $TX_SLEEP
             echo "  [HANDCUFFS] $OPPONENT_NAME pierde su turno"
             USED=true; break
           fi
@@ -368,19 +408,19 @@ while [ $TURN -lt $MAX_TURNS ]; do
   # ── Disparar ──
   if [ "$KNOWN_SHELL" = "blank" ]; then
     echo "  >> SHOOT SELF (blank = turno extra)"
-    RESULT=$(cast_send "$CURRENT_PK" "shootSelf(uint256)" $GAME_ID)
+    RESULT=$(cast_send "$CURRENT_ACCOUNT" "$CURRENT_PW" "shootSelf(uint256)" $GAME_ID)
   else
     echo "  >> SHOOT $OPPONENT_NAME"
-    RESULT=$(cast_send "$CURRENT_PK" "shootOpponent(uint256,address)" $GAME_ID "$OPPONENT")
+    RESULT=$(cast_send "$CURRENT_ACCOUNT" "$CURRENT_PW" "shootOpponent(uint256,address)" $GAME_ID "$OPPONENT")
   fi
 
   if tx_succeeded "$RESULT"; then
     RETRIES=0
+    sleep $TX_SLEEP
 
     # Verificar si el juego termino con este disparo
     NEW_PHASE=$(cast_call "getPhase(uint256)(uint8)" $GAME_ID)
     if [ "$NEW_PHASE" = "2" ]; then
-      # Juego termino — no leer HP porque puede haber cambiado de ronda
       echo "     BANG! Eliminado!"
       break
     fi
@@ -389,16 +429,14 @@ while [ $TURN -lt $MAX_TURNS ]; do
     NEW_HP1=$(cast_call "hp(uint256,address)(uint8)" $GAME_ID "$P1")
     NEW_HP2=$(cast_call "hp(uint256,address)(uint8)" $GAME_ID "$P2")
 
-    # Detectar si cambio de ronda (HP subio) — en ese caso el disparo consumio la ultima shell
+    # Detectar si cambio de ronda
     NEW_ROUND=$(get_round)
 
     if [ "$KNOWN_SHELL" = "blank" ]; then
       echo "     *click* Blank -> turno extra!"
     elif [ "$NEW_ROUND" != "$PREV_ROUND" ]; then
-      # Cambio de ronda: el disparo agoto las shells
       echo "     Shells agotadas -> nueva ronda"
     elif [ "$NEW_HP1" != "$HP1" ] || [ "$NEW_HP2" != "$HP2" ]; then
-      # Alguien recibio dano
       if [ "$NEW_HP1" -lt "$HP1" ] 2>/dev/null; then
         DMG=$((HP1 - NEW_HP1))
         echo "     BANG! P1 -${DMG}HP (${HP1}->${NEW_HP1})"
@@ -417,15 +455,15 @@ while [ $TURN -lt $MAX_TURNS ]; do
       break
     fi
     echo "     [Reintentando... ($RETRIES)]"
-    sleep 1
+    sleep $TX_SLEEP
     TURN=$((TURN - 1))
     continue
   fi
 
-  sleep 0.2
+  sleep $TX_SLEEP
 done
 
-# ── 5. Resultado final ─────────────────────────────────────
+# ── 4. Resultado final ─────────────────────────────────────
 
 echo ""
 echo ""
@@ -439,13 +477,10 @@ HP2=$(cast_call "hp(uint256,address)(uint8)" $GAME_ID "$P2")
 # Determinar ganador por HP
 if [ "$HP1" -gt 0 ] 2>/dev/null && [ "$HP2" -eq 0 ] 2>/dev/null; then
   WINNER_NAME="P1"
-  WINNER_ADDR="$P1"
 elif [ "$HP2" -gt 0 ] 2>/dev/null && [ "$HP1" -eq 0 ] 2>/dev/null; then
   WINNER_NAME="P2"
-  WINNER_ADDR="$P2"
 else
   WINNER_NAME="???"
-  WINNER_ADDR="unknown"
 fi
 
 BAL1=$(cast balance --rpc-url "$RPC" "$P1" --ether 2>/dev/null)
@@ -453,11 +488,11 @@ BAL2=$(cast balance --rpc-url "$RPC" "$P2" --ether 2>/dev/null)
 
 echo ""
 echo "  GANADOR:  $WINNER_NAME"
-echo "  Premio:   0.00002 ETH"
+echo "  Premio:   0.00002 MON"
 echo ""
 echo "  HP final: P1=$HP1  P2=$HP2"
-echo "  Balance:  P1 = $BAL1 ETH"
-echo "            P2 = $BAL2 ETH"
+echo "  Balance:  P1 = $BAL1 MON"
+echo "            P2 = $BAL2 MON"
 echo "  Turnos:   $TURN"
 echo ""
 echo "============================================"

@@ -42,8 +42,8 @@ contract GameFactory {
         gameContract = BuckshotGame(payable(_gameContract));
 
         // Default buy-in tiers
-        uint256[3] memory tiers = [uint256(0.01 ether), 0.1 ether, 1 ether];
-        for (uint256 i = 0; i < 3; i++) {
+        uint256[4] memory tiers = [uint256(0.00001 ether), 0.01 ether, 0.1 ether, 1 ether];
+        for (uint256 i = 0; i < 4; i++) {
             supportedBuyIns.push(tiers[i]);
             isValidBuyIn[tiers[i]] = true;
         }

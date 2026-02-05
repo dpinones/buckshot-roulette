@@ -58,6 +58,18 @@ Deploy order matters: BuckshotGame first, then GameFactory and BuckshotWager (bo
 
 GitHub Actions runs on every push/PR: `forge fmt --check` → `forge build --sizes` → `forge test -vvv`. Profile: `ci`.
 
+## Skills
+
+Always use the `monad-development` skill for any Monad-related tasks (deployment, verification, funding wallets, frontend setup). Invoke it with `/monad-development`. Key APIs from that skill:
+
+- **Faucet API** (fund testnet wallets without browser):
+  ```bash
+  curl -X POST https://agents.devnads.com/v1/faucet \
+    -H "Content-Type: application/json" \
+    -d '{"chainId": 10143, "address": "0xADDRESS"}'
+  ```
+- **Verification API** (verifies on all 3 explorers in one call): use `agents.devnads.com/v1/verify` instead of `forge verify-contract`
+
 ## Dependencies
 
 Git submodules (run `git submodule update --init --recursive` after cloning):
