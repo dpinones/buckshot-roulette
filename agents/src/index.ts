@@ -30,6 +30,13 @@ async function main() {
   // Main loop: create matches and watch games
   while (true) {
     try {
+      // Check if paused (re-read env each iteration so it can be toggled live)
+      if (process.env.PAUSED?.toLowerCase() === 'true' || config.paused) {
+        log.system('Agents PAUSED. Set PAUSED=false to resume.')
+        await sleep(BETWEEN_GAMES_DELAY_MS)
+        continue
+      }
+
       // Create a new match
       const gameId = await createMatch(agents)
 

@@ -29,6 +29,7 @@ export const config = {
   openaiApiKey: env('OPENAI_API_KEY', ''),
 
   // Game
+  paused: env('PAUSED', 'false').toLowerCase() === 'true',
   buyIn: parseEther(env('BUY_IN', '0.00001')),
   pollIntervalMs: parseInt(env('POLL_INTERVAL_MS', '2000')),
   actionDelayMs: parseInt(env('ACTION_DELAY_MS', '2500')),
