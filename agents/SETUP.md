@@ -238,6 +238,79 @@ Usa los valores de Monad testnet del Paso 4.
 
 ---
 
+## Paso 6: Deploy con OpenClaw (modo orquestador)
+
+OpenClaw reemplaza la lógica de decisión: en vez de llamar a Anthropic/OpenAI directamente, OpenClaw usa su propio LLM como cerebro. Los agentes exponen su funcionalidad como CLI commands que OpenClaw invoca.
+
+**Ventaja:** No necesitas API keys de LLM. OpenClaw maneja el LLM internamente. Solo necesitas las private keys de los agentes y las addresses de los contratos.
+
+### 6a. Deploy OpenClaw en Railway
+
+1. Ir a [railway.com](https://railway.com) → **Deploy** → buscar **OpenClaw** (o usar el template link)
+2. Seguir el setup wizard de OpenClaw
+3. Conectar un canal (Telegram o Discord)
+
+### 6b. Configurar environment variables
+
+En el workspace de OpenClaw, configurar las mismas env vars que en el modo standalone (sin las LLM keys):
+
+```
+RPC_URL=https://testnet-rpc.monad.xyz
+BUCKSHOT_GAME_ADDRESS=0x...
+GAME_FACTORY_ADDRESS=0x...
+AGENT_1_PRIVATE_KEY=0x...
+AGENT_2_PRIVATE_KEY=0x...
+AGENT_3_PRIVATE_KEY=0x...
+AGENT_4_PRIVATE_KEY=0x...
+AGENT_5_PRIVATE_KEY=0x...
+BUY_IN=0.00001
+```
+
+**No necesitas `ANTHROPIC_API_KEY` ni `OPENAI_API_KEY`** — OpenClaw usa su propio LLM.
+
+### 6c. Instalar el skill
+
+1. Copiar la carpeta `agents/` al workspace de OpenClaw como skill:
+   - El código va en `/data/workspace/skills/buckshot-roulette/game/`
+   - El skill file va en `/data/workspace/skills/buckshot-roulette/SKILL.md` (copiar de `agents/openclaw/SKILL.md`)
+2. Copiar el `.env` configurado al directorio del skill
+3. Ejecutar el setup script:
+   ```bash
+   bash /data/workspace/skills/buckshot-roulette/scripts/setup.sh
+   ```
+
+### 6d. Configurar cron job
+
+En OpenClaw, configurar un cron que ejecute el skill cada ~5 segundos. Esto hace que el LLM:
+1. Verifique el estado del juego
+2. Cree partidas si no hay una activa
+3. Juegue el turno del agente que corresponda
+
+### 6e. Test manual
+
+Desde el chat de OpenClaw, puedes mandar:
+- "check the buckshot roulette game status"
+- "start a new buckshot roulette game"
+- "play the next turn"
+
+OpenClaw interpretará tu mensaje, invocará el skill, y ejecutará los CLI commands correspondientes.
+
+### Arquitectura OpenClaw vs Standalone
+
+```
+STANDALONE (index.ts):              OPENCLAW:
+index.ts (while true)               OpenClaw cron (cada ~5s)
+  → matchmaker.ts                     → SKILL.md define reglas + personalidades
+  → game-watcher.ts                   → CLI commands = tools de OpenClaw
+  → prompt-builder.ts                 → OpenClaw LLM decide (no API directas)
+  → sonnet.ts / gpt.ts               → Personalidades en SKILL.md
+  → action-parser.ts                  → OpenClaw parsea la decisión
+  → validator.ts                      → fallback-strategy como CLI command
+  → tx-executor.ts                    → use-item, shoot-opponent, shoot-self como CLI
+```
+
+---
+
 ## Estructura de archivos creados
 
 ```
@@ -248,8 +321,13 @@ agents/
 ├── .gitignore                      # node_modules, dist, .env
 ├── Dockerfile                      # Node 20 Alpine (usado por Railway)
 ├── railway.toml                    # Config de Railway (builder + restart policy)
+├── openclaw/
+│   ├── SKILL.md                    # Skill de OpenClaw (reglas, personalidades, tools, loop)
+│   └── scripts/
+│       └── setup.sh                # Setup script para workspace de OpenClaw
 ├── src/
-│   ├── index.ts                    # Entry point + main loop
+│   ├── index.ts                    # Entry point + main loop (modo standalone)
+│   ├── cli.ts                      # CLI entry point (modo OpenClaw)
 │   ├── config.ts                   # Lee env vars
 │   ├── logger.ts                   # Logging con colores
 │   ├── contracts/
