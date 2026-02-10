@@ -5,6 +5,8 @@ import { Phase } from './config/contracts'
 import { GameBoard } from './components/GameBoard'
 import { WaitingScreen } from './components/WaitingScreen'
 import { Lobby } from './components/Lobby'
+import { Rankings } from './components/Rankings'
+import { GameReplay } from './components/GameReplay'
 
 function GameView({
   gameId,
@@ -30,13 +32,20 @@ function GameView({
   )
 }
 
+type View = 'lobby' | 'game' | 'rankings' | 'replay'
+
 function App() {
-  const [view, setView] = useState<'lobby' | 'game'>('lobby')
+  const [view, setView] = useState<View>('lobby')
   const [selectedGameId, setSelectedGameId] = useState<bigint>(0n)
 
   function handleSelectGame(gameId: bigint) {
     setSelectedGameId(gameId)
     setView('game')
+  }
+
+  function handleReplay(gameId: bigint) {
+    setSelectedGameId(gameId)
+    setView('replay')
   }
 
   function handleBackToLobby() {
@@ -47,7 +56,25 @@ function App() {
     return <GameView gameId={selectedGameId} onBack={handleBackToLobby} />
   }
 
-  return <Lobby onSelectGame={handleSelectGame} />
+  if (view === 'rankings') {
+    return (
+      <Rankings
+        onBack={handleBackToLobby}
+        onReplay={handleReplay}
+      />
+    )
+  }
+
+  if (view === 'replay') {
+    return <GameReplay gameId={selectedGameId} onBack={() => setView('rankings')} />
+  }
+
+  return (
+    <Lobby
+      onSelectGame={handleSelectGame}
+      onOpenRankings={() => setView('rankings')}
+    />
+  )
 }
 
 export default App

@@ -3,6 +3,7 @@ import { GameCard } from './GameCard'
 
 interface LobbyProps {
   onSelectGame: (gameId: bigint) => void
+  onOpenRankings?: () => void
 }
 
 function shortAddr(addr: string): string {
@@ -68,7 +69,7 @@ function QueueCard({ queue }: { queue: QueueInfo }) {
   )
 }
 
-export function Lobby({ onSelectGame }: LobbyProps) {
+export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
   const { queues, games, connected, error } = useLobbyState(3000)
 
   return (
@@ -85,15 +86,27 @@ export function Lobby({ onSelectGame }: LobbyProps) {
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <div
-              className={`w-1.5 h-1.5 rounded-full ${
-                connected ? 'bg-alive' : 'bg-blood animate-pulse'
-              }`}
-            />
-            <span className="text-[9px] font-mono text-white/20">
-              {connected ? 'Connected' : 'Connecting...'}
-            </span>
+          <div className="flex items-center gap-4">
+            {onOpenRankings && (
+              <button
+                onClick={onOpenRankings}
+                className="text-[9px] font-mono text-white/25 hover:text-gold/60 transition-colors
+                           border border-white/[0.06] hover:border-gold/20 px-2.5 py-1
+                           cursor-pointer rounded-sm"
+              >
+                RANKINGS
+              </button>
+            )}
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-1.5 h-1.5 rounded-full ${
+                  connected ? 'bg-alive' : 'bg-blood animate-pulse'
+                }`}
+              />
+              <span className="text-[9px] font-mono text-white/20">
+                {connected ? 'Connected' : 'Connecting...'}
+              </span>
+            </div>
           </div>
         </div>
       </header>

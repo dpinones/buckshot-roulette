@@ -173,3 +173,129 @@ export const Phase = {
   ACTIVE: 1,
   FINISHED: 2,
 } as const
+
+// PlayerProfile ABI
+export const playerProfileAbi = [
+  {
+    type: 'function',
+    name: 'getStats',
+    inputs: [{ name: 'player', type: 'address' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'gamesPlayed', type: 'uint32' },
+          { name: 'gamesWon', type: 'uint32' },
+          { name: 'kills', type: 'uint32' },
+          { name: 'deaths', type: 'uint32' },
+          { name: 'shotsFired', type: 'uint32' },
+          { name: 'itemsUsed', type: 'uint32' },
+          { name: 'totalEarnings', type: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'hasProfile',
+    inputs: [{ name: '', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+  },
+] as const satisfies Abi
+
+// BuckshotGame event ABIs (for getLogs)
+export const buckshotGameEventAbi = [
+  {
+    type: 'event',
+    name: 'GameCreated',
+    inputs: [
+      { name: 'gameId', type: 'uint256', indexed: true },
+      { name: 'players', type: 'address[]', indexed: false },
+      { name: 'buyIn', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'GameEnded',
+    inputs: [
+      { name: 'gameId', type: 'uint256', indexed: true },
+      { name: 'winner', type: 'address', indexed: true },
+      { name: 'prize', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'ShotFired',
+    inputs: [
+      { name: 'gameId', type: 'uint256', indexed: true },
+      { name: 'shooter', type: 'address', indexed: true },
+      { name: 'target', type: 'address', indexed: true },
+      { name: 'wasLive', type: 'bool', indexed: false },
+      { name: 'damage', type: 'uint8', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'ItemUsed',
+    inputs: [
+      { name: 'gameId', type: 'uint256', indexed: true },
+      { name: 'player', type: 'address', indexed: true },
+      { name: 'itemType', type: 'uint8', indexed: false },
+      { name: 'data', type: 'bytes', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'PlayerEliminated',
+    inputs: [
+      { name: 'gameId', type: 'uint256', indexed: true },
+      { name: 'player', type: 'address', indexed: true },
+      { name: 'placement', type: 'uint8', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'RoundStarted',
+    inputs: [
+      { name: 'gameId', type: 'uint256', indexed: true },
+      { name: 'round', type: 'uint8', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'TurnStarted',
+    inputs: [
+      { name: 'gameId', type: 'uint256', indexed: true },
+      { name: 'player', type: 'address', indexed: true },
+      { name: 'deadline', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'ShellsLoaded',
+    inputs: [
+      { name: 'gameId', type: 'uint256', indexed: true },
+      { name: 'liveCount', type: 'uint8', indexed: false },
+      { name: 'blankCount', type: 'uint8', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'ShellEjected',
+    inputs: [
+      { name: 'gameId', type: 'uint256', indexed: true },
+      { name: 'wasLive', type: 'bool', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'RoundEnded',
+    inputs: [
+      { name: 'gameId', type: 'uint256', indexed: true },
+      { name: 'round', type: 'uint8', indexed: false },
+    ],
+  },
+] as const satisfies Abi
