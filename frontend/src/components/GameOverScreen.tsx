@@ -4,13 +4,14 @@ interface GameOverScreenProps {
   winner: Address
   label: string
   prize: string
+  onHome?: () => void
 }
 
 function truncateAddr(addr: Address): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
-export function GameOverScreen({ winner, label, prize }: GameOverScreenProps) {
+export function GameOverScreen({ winner, label, prize, onHome }: GameOverScreenProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm animate-[fadeIn_0.5s_ease-out]">
       {/* Blood drip lines */}
@@ -59,10 +60,17 @@ export function GameOverScreen({ winner, label, prize }: GameOverScreenProps) {
           </div>
         </div>
 
-        {/* Waiting */}
-        <div className="text-[10px] text-white/15 animate-pulse font-mono">
-          Waiting for next game...
-        </div>
+        {/* Home button */}
+        {onHome && (
+          <button
+            onClick={onHome}
+            className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/30 hover:text-white/60
+                       border border-white/[0.08] hover:border-white/[0.2] px-6 py-2.5
+                       cursor-pointer rounded-sm transition-colors"
+          >
+            Back to Lobby
+          </button>
+        )}
       </div>
     </div>
   )

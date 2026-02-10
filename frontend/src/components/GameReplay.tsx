@@ -262,6 +262,7 @@ export function GameReplay({ gameId, onBack }: GameReplayProps) {
               : '???'
           }
           prize={gameState.prizePoolFormatted}
+          onHome={onBack}
         />
       )}
 
