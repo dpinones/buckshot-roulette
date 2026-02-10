@@ -60,16 +60,14 @@ contract BuckshotWager {
         address[] memory players = gameContract.getPlayers(gameId);
         bool found = false;
         for (uint256 i = 0; i < players.length; i++) {
-            if (players[i] == predictedWinner) { found = true; break; }
+            if (players[i] == predictedWinner) {
+                found = true;
+                break;
+            }
         }
         if (!found) revert InvalidPrediction();
 
-        Bet memory bet = Bet({
-            bettor: msg.sender,
-            predictedWinner: predictedWinner,
-            amount: msg.value,
-            claimed: false
-        });
+        Bet memory bet = Bet({bettor: msg.sender, predictedWinner: predictedWinner, amount: msg.value, claimed: false});
 
         userBets[gameId][msg.sender].push(bet);
         totalPool[gameId] += msg.value;
@@ -149,11 +147,11 @@ contract BuckshotWager {
         return totalPool[gameId];
     }
 
-    function getMyBets(uint256 gameId, address bettor) external view returns (
-        address[] memory predictedWinners,
-        uint256[] memory amounts,
-        bool[] memory claimed
-    ) {
+    function getMyBets(uint256 gameId, address bettor)
+        external
+        view
+        returns (address[] memory predictedWinners, uint256[] memory amounts, bool[] memory claimed)
+    {
         Bet[] storage bets = userBets[gameId][bettor];
         uint256 len = bets.length;
         predictedWinners = new address[](len);

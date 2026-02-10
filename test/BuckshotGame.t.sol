@@ -2,11 +2,13 @@
 pragma solidity ^0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
+import {PlayerProfile} from "../src/PlayerProfile.sol";
 import {BuckshotGame} from "../src/BuckshotGame.sol";
 import {GameFactory} from "../src/GameFactory.sol";
 import {BuckshotWager} from "../src/BuckshotWager.sol";
 
 contract BuckshotGameTest is Test {
+    PlayerProfile public profile;
     BuckshotGame public game;
     GameFactory public factory;
     BuckshotWager public wager;
@@ -20,8 +22,10 @@ contract BuckshotGameTest is Test {
     uint256 constant BUY_IN = 0.01 ether;
 
     function setUp() public {
-        game = new BuckshotGame();
-        factory = new GameFactory(address(game));
+        profile = new PlayerProfile();
+        game = new BuckshotGame(address(profile));
+        profile.setGameContract(address(game));
+        factory = new GameFactory(address(game), address(profile));
         wager = new BuckshotWager(address(game));
 
         // Fund players
@@ -30,6 +34,16 @@ contract BuckshotGameTest is Test {
         vm.deal(player3, 10 ether);
         vm.deal(player4, 10 ether);
         vm.deal(spectator1, 10 ether);
+
+        // Create profiles for all test players
+        vm.prank(player1);
+        profile.createProfile();
+        vm.prank(player2);
+        profile.createProfile();
+        vm.prank(player3);
+        profile.createProfile();
+        vm.prank(player4);
+        profile.createProfile();
     }
 
     // ── Helper ──────────────────────────────────────────────────
@@ -48,6 +62,141 @@ contract BuckshotGameTest is Test {
         players[2] = player3;
         players[3] = player4;
         gameId = game.createGame{value: BUY_IN * 4}(players, BUY_IN);
+    }
+
+    // ── PlayerProfile Tests ─────────────────────────────────────
+
+    function test_profile_createProfile() public {
+        address newPlayer = makeAddr("newPlayer");
+        assertFalse(profile.hasProfile(newPlayer));
+
+        vm.prank(newPlayer);
+        profile.createProfile();
+
+        assertTrue(profile.hasProfile(newPlayer));
+
+        PlayerProfile.Stats memory s = profile.getStats(newPlayer);
+        assertEq(s.gamesPlayed, 0);
+        assertEq(s.gamesWon, 0);
+        assertEq(s.kills, 0);
+        assertEq(s.deaths, 0);
+        assertEq(s.shotsFired, 0);
+        assertEq(s.itemsUsed, 0);
+        assertEq(s.totalEarnings, 0);
+    }
+
+    function test_profile_createProfile_reverts_duplicate() public {
+        vm.prank(player1);
+        vm.expectRevert(PlayerProfile.AlreadyRegistered.selector);
+        profile.createProfile();
+    }
+
+    function test_profile_stats_after_game() public {
+        uint256 gameId = _createGame2Players();
+
+        // Play until game ends
+        for (uint256 i = 0; i < 200; i++) {
+            BuckshotGame.GameView memory state = game.getGameState(gameId);
+            if (state.phase == BuckshotGame.GamePhase.FINISHED) break;
+
+            address currentPlayer = game.getCurrentTurn(gameId);
+            address target = currentPlayer == player1 ? player2 : player1;
+
+            vm.prank(currentPlayer);
+            game.shootOpponent(gameId, target);
+        }
+
+        BuckshotGame.GameView memory finalState = game.getGameState(gameId);
+        assertEq(uint8(finalState.phase), uint8(BuckshotGame.GamePhase.FINISHED));
+
+        address winner = finalState.winner;
+        address loser = winner == player1 ? player2 : player1;
+
+        PlayerProfile.Stats memory winnerStats = profile.getStats(winner);
+        PlayerProfile.Stats memory loserStats = profile.getStats(loser);
+
+        assertEq(winnerStats.gamesPlayed, 1);
+        assertEq(winnerStats.gamesWon, 1);
+        assertEq(loserStats.gamesPlayed, 1);
+        assertEq(loserStats.gamesWon, 0);
+        assertTrue(winnerStats.shotsFired > 0);
+        assertTrue(loserStats.deaths >= 1);
+        assertTrue(winnerStats.kills >= 1);
+        assertEq(winnerStats.totalEarnings, BUY_IN * 2);
+    }
+
+    function test_profile_kills_and_deaths() public {
+        uint256 gameId = _createGame4Players();
+
+        // Play until game ends
+        for (uint256 i = 0; i < 500; i++) {
+            BuckshotGame.GameView memory state = game.getGameState(gameId);
+            if (state.phase == BuckshotGame.GamePhase.FINISHED) break;
+
+            address currentPlayer = game.getCurrentTurn(gameId);
+
+            address target;
+            for (uint256 j = 0; j < state.players.length; j++) {
+                if (state.players[j] != currentPlayer && state.alive[j]) {
+                    target = state.players[j];
+                    break;
+                }
+            }
+
+            vm.prank(currentPlayer);
+            game.shootOpponent(gameId, target);
+        }
+
+        // In a 4-player game, there should be exactly 3 deaths total
+        uint32 totalDeaths;
+        uint32 totalKills;
+        for (uint256 i = 0; i < 4; i++) {
+            address p;
+            if (i == 0) p = player1;
+            else if (i == 1) p = player2;
+            else if (i == 2) p = player3;
+            else p = player4;
+
+            PlayerProfile.Stats memory s = profile.getStats(p);
+            totalDeaths += s.deaths;
+            totalKills += s.kills;
+        }
+
+        assertEq(totalDeaths, 3);
+        assertEq(totalKills, 3);
+    }
+
+    function test_profile_onlyGame_reverts() public {
+        vm.prank(player1);
+        vm.expectRevert(PlayerProfile.NotGameContract.selector);
+        profile.recordShotFired(player1);
+
+        vm.prank(player1);
+        vm.expectRevert(PlayerProfile.NotGameContract.selector);
+        profile.recordItemUsed(player1);
+
+        vm.prank(player1);
+        vm.expectRevert(PlayerProfile.NotGameContract.selector);
+        profile.recordKill(player1);
+
+        vm.prank(player1);
+        vm.expectRevert(PlayerProfile.NotGameContract.selector);
+        profile.recordDeath(player1);
+
+        address[] memory players = new address[](1);
+        players[0] = player1;
+        vm.prank(player1);
+        vm.expectRevert(PlayerProfile.NotGameContract.selector);
+        profile.recordGameEnd(players, player1, 0);
+    }
+
+    function test_factory_joinQueue_noProfile() public {
+        address noProfile = makeAddr("noProfile");
+        vm.deal(noProfile, 10 ether);
+
+        vm.prank(noProfile);
+        vm.expectRevert(GameFactory.NoProfile.selector);
+        factory.joinQueue{value: BUY_IN}(BUY_IN);
     }
 
     // ── BuckshotGame Tests ──────────────────────────────────────

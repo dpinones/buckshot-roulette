@@ -1,10 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {PlayerProfile} from "./PlayerProfile.sol";
+
 contract BuckshotGame {
     // ── Enums ───────────────────────────────────────────────────
-    enum GamePhase { WAITING, ACTIVE, FINISHED }
-    enum ItemType { NONE, MAGNIFYING_GLASS, BEER, HANDSAW, HANDCUFFS, CIGARETTES, INVERTER }
+    enum GamePhase {
+        WAITING,
+        ACTIVE,
+        FINISHED
+    }
+    enum ItemType {
+        NONE,
+        MAGNIFYING_GLASS,
+        BEER,
+        HANDSAW,
+        HANDCUFFS,
+        CIGARETTES,
+        INVERTER
+    }
 
     // ── Structs ─────────────────────────────────────────────────
     struct GameView {
@@ -40,6 +54,8 @@ contract BuckshotGame {
         uint256 buyIn;
     }
 
+    PlayerProfile public profileContract;
+
     uint256 public nextGameId;
     uint256 public constant TURN_TIMEOUT = 60 seconds;
     uint256 private _nonce;
@@ -57,7 +73,9 @@ contract BuckshotGame {
     event RoundStarted(uint256 indexed gameId, uint8 round);
     event ShellsLoaded(uint256 indexed gameId, uint8 liveCount, uint8 blankCount);
     event TurnStarted(uint256 indexed gameId, address indexed player, uint256 deadline);
-    event ShotFired(uint256 indexed gameId, address indexed shooter, address indexed target, bool wasLive, uint8 damage);
+    event ShotFired(
+        uint256 indexed gameId, address indexed shooter, address indexed target, bool wasLive, uint8 damage
+    );
     event ItemUsed(uint256 indexed gameId, address indexed player, uint8 itemType, bytes data);
     event ShellRevealed(uint256 indexed gameId, address indexed player, bool isLive);
     event ShellEjected(uint256 indexed gameId, bool wasLive);
@@ -82,6 +100,11 @@ contract BuckshotGame {
         if (g.phase != GamePhase.ACTIVE) revert GameNotActive();
         if (g.players[g.currentTurnIndex] != msg.sender) revert NotYourTurn();
         _;
+    }
+
+    // ── Constructor ─────────────────────────────────────────────
+    constructor(address _profileContract) {
+        profileContract = PlayerProfile(_profileContract);
     }
 
     // ── Create Game (called by GameFactory) ─────────────────────
@@ -116,6 +139,7 @@ contract BuckshotGame {
         _requireAlivePlayer(gameId, target);
         if (target == msg.sender) revert InvalidTarget();
 
+        profileContract.recordShotFired(msg.sender);
         (bool wasLive, uint8 damage) = _fireShell(gameId, msg.sender);
 
         if (wasLive) {
@@ -123,7 +147,7 @@ contract BuckshotGame {
                 damage = 2;
                 sawActive[gameId][msg.sender] = false;
             }
-            _applyDamage(gameId, target, damage);
+            _applyDamage(gameId, msg.sender, target, damage);
         } else {
             sawActive[gameId][msg.sender] = false;
         }
@@ -134,6 +158,7 @@ contract BuckshotGame {
     }
 
     function shootSelf(uint256 gameId) external onlyCurrentTurn(gameId) {
+        profileContract.recordShotFired(msg.sender);
         (bool wasLive, uint8 damage) = _fireShell(gameId, msg.sender);
 
         if (wasLive) {
@@ -141,7 +166,7 @@ contract BuckshotGame {
                 damage = 2;
                 sawActive[gameId][msg.sender] = false;
             }
-            _applyDamage(gameId, msg.sender, damage);
+            _applyDamage(gameId, msg.sender, msg.sender, damage);
             emit ShotFired(gameId, msg.sender, msg.sender, true, damage);
             _clearShellKnowledge(gameId, msg.sender);
             _afterShot(gameId, false);
@@ -161,6 +186,8 @@ contract BuckshotGame {
         uint8 itemType = playerItems[itemIndex];
         if (itemType == 0) revert NoSuchItem();
 
+        profileContract.recordItemUsed(msg.sender);
+
         // Remove item (swap with last, pop)
         playerItems[itemIndex] = playerItems[playerItems.length - 1];
         playerItems.pop();
@@ -173,8 +200,7 @@ contract BuckshotGame {
             knownShellValue[gameId][msg.sender] = isLive ? 1 : 0;
             emit ShellRevealed(gameId, msg.sender, isLive);
             emit ItemUsed(gameId, msg.sender, itemType, abi.encode(isLive));
-        }
-        else if (itemType == uint8(ItemType.BEER)) {
+        } else if (itemType == uint8(ItemType.BEER)) {
             bool wasLive = g.shells[g.shellIndex] == 1;
             g.shellIndex++;
             emit ShellEjected(gameId, wasLive);
@@ -183,26 +209,22 @@ contract BuckshotGame {
             if (g.shellIndex >= g.shells.length) {
                 _loadShells(gameId);
             }
-        }
-        else if (itemType == uint8(ItemType.HANDSAW)) {
+        } else if (itemType == uint8(ItemType.HANDSAW)) {
             sawActive[gameId][msg.sender] = true;
             emit ItemUsed(gameId, msg.sender, itemType, "");
-        }
-        else if (itemType == uint8(ItemType.HANDCUFFS)) {
+        } else if (itemType == uint8(ItemType.HANDCUFFS)) {
             // Skip the next player in turn order (not self)
             address nextPlayer = _getNextAlivePlayer(gameId, g.currentTurnIndex);
             skipNextTurn[gameId][nextPlayer] = true;
             emit ItemUsed(gameId, msg.sender, itemType, abi.encode(nextPlayer));
-        }
-        else if (itemType == uint8(ItemType.CIGARETTES)) {
+        } else if (itemType == uint8(ItemType.CIGARETTES)) {
             uint8 maxHp = _maxHpForRound(g.currentRound);
             uint8 curHp = hp[gameId][msg.sender];
             if (curHp < maxHp) {
                 hp[gameId][msg.sender] = curHp + 1;
             }
             emit ItemUsed(gameId, msg.sender, itemType, abi.encode(hp[gameId][msg.sender]));
-        }
-        else if (itemType == uint8(ItemType.INVERTER)) {
+        } else if (itemType == uint8(ItemType.INVERTER)) {
             g.shells[g.shellIndex] = 1 - g.shells[g.shellIndex];
             // If player knew the shell, update their knowledge
             if (currentShellKnown[gameId][msg.sender]) {
@@ -223,10 +245,11 @@ contract BuckshotGame {
 
         address timedOut = g.players[g.currentTurnIndex];
 
+        profileContract.recordShotFired(timedOut);
         // Default action: shoot self (penalty)
         (bool wasLive, uint8 damage) = _fireShell(gameId, timedOut);
         if (wasLive) {
-            _applyDamage(gameId, timedOut, damage);
+            _applyDamage(gameId, timedOut, timedOut, damage);
         }
 
         emit ShotFired(gameId, timedOut, timedOut, wasLive, wasLive ? damage : 0);
@@ -325,9 +348,16 @@ contract BuckshotGame {
 
         uint8 minShells;
         uint8 maxShells;
-        if (round == 1) { minShells = 2; maxShells = 4; }
-        else if (round == 2) { minShells = 4; maxShells = 6; }
-        else { minShells = 5; maxShells = 8; }
+        if (round == 1) {
+            minShells = 2;
+            maxShells = 4;
+        } else if (round == 2) {
+            minShells = 4;
+            maxShells = 6;
+        } else {
+            minShells = 5;
+            maxShells = 8;
+        }
 
         uint8 totalShells = _random(minShells, maxShells);
         uint8 liveCount = _random(1, totalShells - 1); // At least 1 live, 1 blank
@@ -335,8 +365,12 @@ contract BuckshotGame {
 
         // Build and shuffle
         delete g.shells;
-        for (uint8 i = 0; i < liveCount; i++) g.shells.push(1);
-        for (uint8 i = 0; i < blankCount; i++) g.shells.push(0);
+        for (uint8 i = 0; i < liveCount; i++) {
+            g.shells.push(1);
+        }
+        for (uint8 i = 0; i < blankCount; i++) {
+            g.shells.push(0);
+        }
 
         // Fisher-Yates shuffle
         for (uint256 i = g.shells.length - 1; i > 0; i--) {
@@ -373,28 +407,31 @@ contract BuckshotGame {
         return (wasLive, damage);
     }
 
-    function _applyDamage(uint256 gameId, address target, uint8 damage) internal {
+    function _applyDamage(uint256 gameId, address shooter, address target, uint8 damage) internal {
         uint8 curHp = hp[gameId][target];
         if (damage >= curHp) {
             hp[gameId][target] = 0;
-            _eliminatePlayer(gameId, target);
+            _eliminatePlayer(gameId, shooter, target);
         } else {
             hp[gameId][target] = curHp - damage;
         }
     }
 
-    function _eliminatePlayer(uint256 gameId, address player) internal {
+    function _eliminatePlayer(uint256 gameId, address killer, address victim) internal {
         Game storage g = games[gameId];
         for (uint256 i = 0; i < g.players.length; i++) {
-            if (g.players[i] == player && g.alive[i]) {
+            if (g.players[i] == victim && g.alive[i]) {
                 g.alive[i] = false;
                 g.aliveCount--;
-                emit PlayerEliminated(gameId, player, g.aliveCount + 1);
+                emit PlayerEliminated(gameId, victim, g.aliveCount + 1);
+
+                profileContract.recordKill(killer);
+                profileContract.recordDeath(victim);
 
                 // Clear items
-                delete items[gameId][player];
-                sawActive[gameId][player] = false;
-                skipNextTurn[gameId][player] = false;
+                delete items[gameId][victim];
+                sawActive[gameId][victim] = false;
+                skipNextTurn[gameId][victim] = false;
 
                 break;
             }
@@ -483,6 +520,8 @@ contract BuckshotGame {
         uint256 prize = g.prizePool;
         g.prizePool = 0;
 
+        profileContract.recordGameEnd(g.players, g.winner, prize);
+
         emit GameEnded(gameId, g.winner, prize);
 
         // Transfer prize to winner
@@ -532,12 +571,11 @@ contract BuckshotGame {
     function _random(uint8 min, uint8 max) internal returns (uint8) {
         if (min == max) return min;
         _nonce++;
-        return min + uint8(uint256(keccak256(abi.encodePacked(
-            block.timestamp,
-            block.prevrandao,
-            _nonce,
-            msg.sender
-        ))) % (max - min + 1));
+        return min
+            + uint8(
+            uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _nonce, msg.sender)))
+                % (max - min + 1)
+        );
     }
 
     receive() external payable {}

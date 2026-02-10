@@ -32,6 +32,6 @@ export const config = {
   paused: env('PAUSED', 'false').toLowerCase() === 'true',
   buyIn: parseEther(env('BUY_IN', '0.00001')),
   pollIntervalMs: parseInt(env('POLL_INTERVAL_MS', '2000')),
-  actionDelayMs: parseInt(env('ACTION_DELAY_MS', '2500')),
+  actionDelayMs: parseInt(env('ACTION_DELAY_MS', '3000')),
   playerCount: 5 as const,
 }

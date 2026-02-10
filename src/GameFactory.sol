@@ -2,10 +2,12 @@
 pragma solidity ^0.8.28;
 
 import {BuckshotGame} from "./BuckshotGame.sol";
+import {PlayerProfile} from "./PlayerProfile.sol";
 
 contract GameFactory {
     // ── Storage ─────────────────────────────────────────────────
     BuckshotGame public gameContract;
+    PlayerProfile public profileContract;
 
     uint8 public constant MIN_PLAYERS = 2;
     uint8 public constant MAX_PLAYERS = 6;
@@ -36,10 +38,12 @@ contract GameFactory {
     error WrongPayment();
     error NotEnoughPlayers();
     error TooManyPlayers();
+    error NoProfile();
 
     // ── Constructor ─────────────────────────────────────────────
-    constructor(address _gameContract) {
+    constructor(address _gameContract, address _profileContract) {
         gameContract = BuckshotGame(payable(_gameContract));
+        profileContract = PlayerProfile(_profileContract);
 
         // Default buy-in tiers
         uint256[4] memory tiers = [uint256(0.00001 ether), 0.01 ether, 0.1 ether, 1 ether];
@@ -52,6 +56,7 @@ contract GameFactory {
     // ── Queue Management ────────────────────────────────────────
 
     function joinQueue(uint256 buyIn) external payable {
+        if (!profileContract.hasProfile(msg.sender)) revert NoProfile();
         if (!isValidBuyIn[buyIn]) revert InvalidBuyIn();
         if (isInQueue[msg.sender]) revert AlreadyInQueue();
         if (msg.value != buyIn) revert WrongPayment();

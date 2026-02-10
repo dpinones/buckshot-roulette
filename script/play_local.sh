@@ -155,6 +155,7 @@ DEPLOY_OUTPUT=$(forge script script/Deploy.s.sol \
   --private-key "$PK1" \
   --broadcast 2>&1)
 
+PROFILE_ADDR=$(echo "$DEPLOY_OUTPUT" | grep "PlayerProfile deployed" | awk '{print $NF}')
 GAME_ADDR=$(echo "$DEPLOY_OUTPUT" | grep "BuckshotGame deployed" | awk '{print $NF}')
 FACTORY_ADDR=$(echo "$DEPLOY_OUTPUT" | grep "GameFactory deployed" | awk '{print $NF}')
 WAGER_ADDR=$(echo "$DEPLOY_OUTPUT" | grep "BuckshotWager deployed" | awk '{print $NF}')
@@ -168,6 +169,7 @@ fi
 # Esperar a que los contratos esten confirmados on-chain
 sleep 2
 
+echo "  PlayerProfile: $PROFILE_ADDR"
 echo "  BuckshotGame:  $GAME_ADDR"
 echo "  GameFactory:   $FACTORY_ADDR"
 echo "  BuckshotWager: $WAGER_ADDR"
@@ -182,6 +184,34 @@ cast_send_factory() {
   local pk="$1"; shift
   cast send --rpc-url "$RPC" --private-key "$pk" --gas-limit 1000000 "$FACTORY_ADDR" "$@" 2>&1
 }
+
+# Helper para enviar txs al profile
+cast_send_profile() {
+  local pk="$1"; shift
+  cast send --rpc-url "$RPC" --private-key "$pk" --gas-limit 1000000 "$PROFILE_ADDR" "$@" 2>&1
+}
+
+# Helper para leer del profile
+cast_call_profile() {
+  cast call --rpc-url "$RPC" "$PROFILE_ADDR" "$@" 2>/dev/null
+}
+
+# Create profiles
+echo "  P1 creating profile..."
+PROF1=$(cast_send_profile "$PK1" "createProfile()")
+if ! tx_succeeded "$PROF1"; then
+  echo "ERROR: P1 no pudo crear perfil"
+  echo "$PROF1"
+  exit 1
+fi
+
+echo "  P2 creating profile..."
+PROF2=$(cast_send_profile "$PK2" "createProfile()")
+if ! tx_succeeded "$PROF2"; then
+  echo "ERROR: P2 no pudo crear perfil"
+  echo "$PROF2"
+  exit 1
+fi
 
 # P1 joins queue
 echo "  P1 joining queue..."
@@ -466,5 +496,24 @@ echo "  HP final: P1=$HP1  P2=$HP2"
 echo "  Balance:  P1 = $BAL1 ETH"
 echo "            P2 = $BAL2 ETH"
 echo "  Turnos:   $TURN"
+echo ""
+
+# ── Player Profile Stats ──
+echo "  ── Player Stats ──"
+for PADDR in "$P1" "$P2"; do
+  PNAME=$(name_for "$PADDR")
+  STATS_RAW=$(cast_call_profile "getStats(address)((uint32,uint32,uint32,uint32,uint32,uint32,uint256))" "$PADDR")
+  # Parse tuple output: (gamesPlayed, gamesWon, kills, deaths, shotsFired, itemsUsed, totalEarnings)
+  STATS_CLEAN=$(echo "$STATS_RAW" | tr -d '()' | tr ',' '\n' | tr -d ' ')
+  GP=$(echo "$STATS_CLEAN" | sed -n '1p')
+  GW=$(echo "$STATS_CLEAN" | sed -n '2p')
+  KL=$(echo "$STATS_CLEAN" | sed -n '3p')
+  DT=$(echo "$STATS_CLEAN" | sed -n '4p')
+  SF=$(echo "$STATS_CLEAN" | sed -n '5p')
+  IU=$(echo "$STATS_CLEAN" | sed -n '6p')
+  TE=$(echo "$STATS_CLEAN" | sed -n '7p')
+  echo "  $PNAME: Games=$GP Won=$GW Kills=$KL Deaths=$DT Shots=$SF Items=$IU Earnings=$TE"
+done
+
 echo ""
 echo "============================================"
