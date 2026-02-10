@@ -1,17 +1,22 @@
+import { useState } from 'react'
+import { type Address } from 'viem'
 import { type GameState } from '../hooks/useGameState'
 import { type GameEvent } from '../hooks/useEventLog'
 import { Phase } from '../config/contracts'
+import { usePlayerNames } from '../hooks/usePlayerNames'
 import { PlayerCard } from './PlayerCard'
 import { ShellIndicator } from './ShellIndicator'
 import { ShotgunVisual } from './ShotgunVisual'
 import { EventLog } from './EventLog'
 import { RoundBanner } from './RoundBanner'
 import { GameOverScreen } from './GameOverScreen'
+import { PlayerStatsModal } from './PlayerStatsModal'
 
 interface GameBoardProps {
   state: GameState
   prevState: GameState | null
   events: GameEvent[]
+  onBack?: () => void
 }
 
 function maxHpForRound(round: number): number {
@@ -20,97 +25,105 @@ function maxHpForRound(round: number): number {
   return 5
 }
 
-function playerLabel(index: number): string {
-  return `P${index + 1}`
-}
-
-export function GameBoard({ state, prevState, events }: GameBoardProps) {
+export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) {
+  const [selectedPlayer, setSelectedPlayer] = useState<{ address: Address; label: string } | null>(null)
   const players = state.players
+  const names = usePlayerNames(players)
+
+  function getLabel(index: number): string {
+    const name = names[players[index]?.toLowerCase()]
+    return name || `P${index + 1}`
+  }
   const maxHp = maxHpForRound(state.currentRound)
   const isFinished = state.phase === Phase.FINISHED
+  const aliveCount = state.alive.filter(Boolean).length
 
   return (
-    <div className="min-h-screen bg-[#0a0a1a] flex flex-col">
-      {/* Noise overlay */}
-      <div
-        className="fixed inset-0 pointer-events-none opacity-[0.03] z-50"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-        }}
-      />
-
+    <div className="min-h-screen bg-[#060609] flex flex-col scanlines">
       {/* Header */}
-      <header className="border-b border-white/5 px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h1 className="text-xl font-mono font-bold tracking-[0.15em] text-white/90">
+      <header className="border-b border-white/[0.04] px-6 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="text-[9px] font-mono text-white/25 hover:text-white/50 transition-colors
+                           border border-white/[0.06] hover:border-white/[0.12] px-2.5 py-1
+                           cursor-pointer rounded-sm"
+              >
+                LOBBY
+              </button>
+            )}
+            <h1 className="font-display text-lg font-bold tracking-[0.12em] text-white/85">
               BUCKSHOT<span className="text-blood">_</span>ROULETTE
             </h1>
             <RoundBanner round={state.currentRound} maxHp={maxHp} />
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-5">
+            {/* Alive count */}
+            <div className="text-[10px] font-mono text-white/20">
+              <span className="text-alive">{aliveCount}</span>
+              <span className="text-white/10">/{players.length} alive</span>
+            </div>
+
+            {/* Prize pool */}
             <div className="text-right">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-white/20">
-                Prize Pool
+              <div className="text-[8px] uppercase tracking-[0.3em] text-white/15">
+                Prize
               </div>
-              <div className="text-sm font-mono text-gold">
+              <div className="text-xs font-mono text-gold">
                 {state.prizePoolFormatted} ETH
               </div>
             </div>
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <div className="w-1.5 h-1.5 rounded-full bg-alive animate-pulse" />
           </div>
         </div>
       </header>
 
       {/* Main arena */}
-      <main className="flex-1 flex flex-col justify-center px-6 py-8">
-        <div className="max-w-6xl mx-auto w-full">
-          {/* Players + Shotgun row */}
-          <div className="grid grid-cols-[1fr_auto_1fr] gap-8 items-center mb-8">
-            {/* Player 1 (left) */}
-            {players.length > 0 && (
+      <main className="flex-1 flex flex-col px-6 py-6">
+        <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col gap-6">
+          {/* Players row */}
+          <div className={`grid gap-3 ${
+            players.length <= 2 ? 'grid-cols-2' :
+            players.length <= 3 ? 'grid-cols-3' :
+            players.length <= 4 ? 'grid-cols-2 md:grid-cols-4' :
+            players.length <= 5 ? 'grid-cols-2 md:grid-cols-5' :
+            'grid-cols-2 md:grid-cols-3 lg:grid-cols-6'
+          }`}>
+            {players.map((player, i) => (
               <PlayerCard
-                address={players[0]}
-                hp={state.hpList[0] ?? 0}
+                key={player}
+                address={player}
+                hp={state.hpList[i] ?? 0}
                 maxHp={maxHp}
-                items={state.playerItems[players[0].toLowerCase()] ?? []}
-                isCurrentTurn={state.currentTurn?.toLowerCase() === players[0].toLowerCase()}
-                isAlive={state.alive[0] ?? false}
-                label={playerLabel(0)}
-                side="left"
+                items={state.playerItems[player.toLowerCase()] ?? []}
+                isCurrentTurn={state.currentTurn?.toLowerCase() === player.toLowerCase()}
+                isAlive={state.alive[i] ?? false}
+                label={getLabel(i)}
+                onClick={() => setSelectedPlayer({ address: player, label: getLabel(i) })}
               />
-            )}
+            ))}
+          </div>
 
-            {/* Center: Shotgun + Shells */}
-            <div className="flex flex-col items-center gap-4 min-w-[280px]">
-              <ShotgunVisual
-                shellsRemaining={state.shellsRemaining}
-                prevShellsRemaining={prevState?.shellsRemaining}
-              />
-              <ShellIndicator
-                live={state.liveRemaining}
-                blank={state.blankRemaining}
-              />
-            </div>
-
-            {/* Player 2 (right) */}
-            {players.length > 1 && (
-              <PlayerCard
-                address={players[1]}
-                hp={state.hpList[1] ?? 0}
-                maxHp={maxHp}
-                items={state.playerItems[players[1].toLowerCase()] ?? []}
-                isCurrentTurn={state.currentTurn?.toLowerCase() === players[1].toLowerCase()}
-                isAlive={state.alive[1] ?? false}
-                label={playerLabel(1)}
-                side="right"
-              />
-            )}
+          {/* Shotgun + Shells center piece */}
+          <div className="flex items-center justify-center gap-10 py-2">
+            <ShotgunVisual
+              shellsRemaining={state.shellsRemaining}
+              prevShellsRemaining={prevState?.shellsRemaining}
+            />
+            <div className="w-px h-16 bg-white/[0.04]" />
+            <ShellIndicator
+              live={state.liveRemaining}
+              blank={state.blankRemaining}
+            />
           </div>
 
           {/* Event Log */}
-          <EventLog events={events} />
+          <div className="flex-1 min-h-0">
+            <EventLog events={events} />
+          </div>
         </div>
       </main>
 
@@ -119,17 +132,25 @@ export function GameBoard({ state, prevState, events }: GameBoardProps) {
         <GameOverScreen
           winner={state.winner}
           label={
-            players.findIndex(
-              (p) => p.toLowerCase() === state.winner.toLowerCase()
-            ) >= 0
-              ? playerLabel(
-                  players.findIndex(
-                    (p) => p.toLowerCase() === state.winner.toLowerCase()
-                  )
-                )
-              : '???'
+            (() => {
+              const idx = players.findIndex(
+                (p) => p.toLowerCase() === state.winner.toLowerCase()
+              )
+              return idx >= 0 ? getLabel(idx) : '???'
+            })()
           }
           prize={state.prizePoolFormatted}
+          onHome={onBack}
+          gameId={state.id}
+        />
+      )}
+
+      {/* Player Stats Modal */}
+      {selectedPlayer && (
+        <PlayerStatsModal
+          address={selectedPlayer.address}
+          label={selectedPlayer.label}
+          onClose={() => setSelectedPlayer(null)}
         />
       )}
     </div>

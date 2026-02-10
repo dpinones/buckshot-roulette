@@ -1,5 +1,5 @@
 import { type Address } from 'viem'
-import { publicClient } from '../contracts/client.js'
+import { publicClient, walletClients } from '../contracts/client.js'
 import { addresses } from '../contracts/addresses.js'
 import { buckshotGameAbi } from '../contracts/abis.js'
 import { Phase } from '../strategy/action-types.js'
@@ -75,6 +75,11 @@ export class GameWatcher {
       return
     }
 
+    if (phase === Phase.WAITING) {
+      await this.tryActivateGame(this.gameId, contract)
+      return
+    }
+
     if (phase !== Phase.ACTIVE) return
 
     // 2. Check whose turn it is
@@ -109,6 +114,42 @@ export class GameWatcher {
       log.error(agent.name, `Turn processing error: ${msg.slice(0, 100)}`)
     } finally {
       this.processing = false
+    }
+  }
+
+  private async tryActivateGame(gameId: bigint, contract: { address: Address; abi: typeof buckshotGameAbi }) {
+    try {
+      const [deadline, block] = await Promise.all([
+        publicClient.readContract({
+          ...contract,
+          functionName: 'bettingDeadline',
+          args: [gameId],
+        }) as Promise<bigint>,
+        publicClient.getBlock(),
+      ])
+
+      if (block.timestamp < deadline) {
+        const remaining = Number(deadline - block.timestamp)
+        log.game(`Game #${gameId} WAITING — ${remaining}s until betting closes`)
+        return
+      }
+
+      log.game(`Game #${gameId} betting window closed, activating...`)
+      const wallet = walletClients[0]
+      const hash = await wallet.writeContract({
+        ...contract,
+        functionName: 'activateGame',
+        args: [gameId],
+        gas: 500_000n,
+      } as any)
+
+      await publicClient.waitForTransactionReceipt({ hash })
+      log.game(`Game #${gameId} ACTIVATED!`)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (!msg.includes('BettingWindowActive') && !msg.includes('GameNotWaiting')) {
+        log.warn('Activator', `activateGame failed: ${msg.slice(0, 100)}`)
+      }
     }
   }
 

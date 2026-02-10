@@ -5,22 +5,31 @@ interface EventLogProps {
   events: GameEvent[]
 }
 
-const TYPE_STYLES: Record<GameEvent['type'], string> = {
+const TYPE_COLORS: Record<GameEvent['type'], string> = {
   shot: 'text-shell-live',
   item: 'text-neon',
   round: 'text-gold',
-  turn: 'text-white/40',
+  turn: 'text-white/30',
   gameover: 'text-gold font-bold',
-  info: 'text-white/60',
+  info: 'text-white/40',
 }
 
 const TYPE_PREFIX: Record<GameEvent['type'], string> = {
-  shot: '\u{1F4A5}',   // explosion
-  item: '\u{1F9F0}',   // toolbox
-  round: '\u{1F3AF}',  // target
-  turn: '\u{25B6}',    // play
-  gameover: '\u{1F3C6}', // trophy
-  info: '\u{2022}',    // bullet
+  shot: 'BANG',
+  item: 'ITEM',
+  round: 'ROUND',
+  turn: 'TURN',
+  gameover: 'WIN',
+  info: 'INFO',
+}
+
+const PREFIX_COLORS: Record<GameEvent['type'], string> = {
+  shot: 'text-blood',
+  item: 'text-neon/70',
+  round: 'text-gold/70',
+  turn: 'text-white/15',
+  gameover: 'text-gold',
+  info: 'text-white/20',
 }
 
 export function EventLog({ events }: EventLogProps) {
@@ -33,35 +42,42 @@ export function EventLog({ events }: EventLogProps) {
   }, [events.length])
 
   return (
-    <div className="border border-white/5 bg-surface">
-      <div className="px-4 py-2 border-b border-white/5 flex items-center gap-2">
+    <div className="border border-white/[0.04] bg-panel rounded-sm overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-2.5 bg-white/[0.01]">
         <div className="w-1.5 h-1.5 bg-blood rounded-full animate-pulse" />
-        <span className="text-[10px] uppercase tracking-[0.3em] text-white/30">
+        <span className="text-[9px] uppercase tracking-[0.3em] text-white/25 font-display">
           Live Feed
+        </span>
+        <div className="flex-1" />
+        <span className="text-[9px] text-white/10 font-mono tabular-nums">
+          {events.length} events
         </span>
       </div>
 
+      {/* Events */}
       <div
         ref={scrollRef}
-        className="h-48 overflow-y-auto p-3 space-y-1.5"
+        className="h-56 overflow-y-auto px-4 py-2"
       >
         {events.length === 0 && (
-          <div className="text-xs text-white/15 italic text-center py-8">
-            Waiting for action...
+          <div className="flex items-center justify-center h-full">
+            <div className="text-[10px] text-white/10 flex items-center gap-2">
+              <span className="inline-block w-1.5 h-3 bg-white/20" style={{ animation: 'terminalBlink 1s step-end infinite' }} />
+              Waiting for action...
+            </div>
           </div>
         )}
-        {events.map((event) => (
+        {events.map((event, i) => (
           <div
             key={event.id}
             className={`
-              text-xs font-mono flex gap-2 items-start
-              ${event.type === 'gameover' ? 'py-2' : ''}
+              flex items-start gap-3 py-1.5 font-mono text-[11px] leading-relaxed
+              ${i === events.length - 1 ? 'animate-[slideUp_0.3s_ease-out]' : ''}
             `}
           >
-            <span className="flex-shrink-0 w-4 text-center">
-              {TYPE_PREFIX[event.type]}
-            </span>
-            <span className="text-white/15 flex-shrink-0 tabular-nums">
+            {/* Timestamp */}
+            <span className="text-white/10 flex-shrink-0 tabular-nums text-[10px] pt-[1px]">
               {new Date(event.timestamp).toLocaleTimeString('en', {
                 hour12: false,
                 hour: '2-digit',
@@ -69,7 +85,14 @@ export function EventLog({ events }: EventLogProps) {
                 second: '2-digit',
               })}
             </span>
-            <span className={TYPE_STYLES[event.type]}>
+
+            {/* Type badge */}
+            <span className={`flex-shrink-0 text-[8px] uppercase tracking-[0.15em] w-10 text-right pt-[2px] ${PREFIX_COLORS[event.type]}`}>
+              {TYPE_PREFIX[event.type]}
+            </span>
+
+            {/* Message */}
+            <span className={TYPE_COLORS[event.type]}>
               {event.message}
             </span>
           </div>

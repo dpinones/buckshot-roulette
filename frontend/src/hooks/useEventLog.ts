@@ -14,7 +14,13 @@ function shortAddr(addr: Address): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
-function playerLabel(addr: Address, players: readonly Address[]): string {
+function playerLabel(
+  addr: Address,
+  players: readonly Address[],
+  names?: Record<string, string>
+): string {
+  const name = names?.[addr.toLowerCase()]
+  if (name) return name
   const idx = players.findIndex(
     (p) => p.toLowerCase() === addr.toLowerCase()
   )
@@ -23,7 +29,8 @@ function playerLabel(addr: Address, players: readonly Address[]): string {
 
 export function useEventLog(
   state: GameState | null,
-  prevState: GameState | null
+  prevState: GameState | null,
+  names?: Record<string, string>
 ) {
   const [events, setEvents] = useState<GameEvent[]>([])
   const nextId = useRef(0)
@@ -55,13 +62,13 @@ export function useEventLog(
         const dmg = prevHp - currHp
         addEvent(
           'shot',
-          `BANG! ${playerLabel(players[i], players)} took ${dmg} damage (${prevHp} -> ${currHp} HP)`
+          `BANG! ${playerLabel(players[i], players, names)} took ${dmg} damage (${prevHp} -> ${currHp} HP)`
         )
       }
       if (currHp > prevHp && state.currentRound === prevState.currentRound) {
         addEvent(
           'item',
-          `${playerLabel(players[i], players)} healed +${currHp - prevHp} HP`
+          `${playerLabel(players[i], players, names)} healed +${currHp - prevHp} HP`
         )
       }
     }
@@ -83,7 +90,7 @@ export function useEventLog(
           if (diff > 0 && itemNum > 0) {
             addEvent(
               'item',
-              `${playerLabel(player, players)} used ${ITEM_NAMES[itemNum]}`
+              `${playerLabel(player, players, names)} used ${ITEM_NAMES[itemNum]}`
             )
           }
         }
@@ -111,7 +118,7 @@ export function useEventLog(
     ) {
       addEvent(
         'turn',
-        `${playerLabel(state.currentTurn, players)}'s turn`
+        `${playerLabel(state.currentTurn, players, names)}'s turn`
       )
     }
 
@@ -120,7 +127,7 @@ export function useEventLog(
       state.phase === Phase.FINISHED &&
       prevState.phase !== Phase.FINISHED
     ) {
-      const winnerLabel = playerLabel(state.winner, players)
+      const winnerLabel = playerLabel(state.winner, players, names)
       addEvent(
         'gameover',
         `GAME OVER! ${winnerLabel} wins! Prize: ${state.prizePoolFormatted} ETH`

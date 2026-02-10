@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { createPublicClient, http, formatEther, type Address } from 'viem'
-import { foundry } from 'viem/chains'
+import { formatEther, type Address } from 'viem'
 import {
   ADDRESSES,
-  GAME_ID,
   buckshotGameAbi,
 } from '../config/contracts'
+import { publicClient } from '../config/wagmi'
 
 export interface GameState {
   id: bigint
@@ -26,12 +25,9 @@ export interface GameState {
   playerItems: Record<string, readonly number[]>
 }
 
-const client = createPublicClient({
-  chain: foundry,
-  transport: http('http://127.0.0.1:8545'),
-})
+export const client = publicClient
 
-export function useGameState(pollInterval = 2000) {
+export function useGameState(gameId: bigint, pollInterval = 2000) {
   const [state, setState] = useState<GameState | null>(null)
   const [prevState, setPrevState] = useState<GameState | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -40,6 +36,10 @@ export function useGameState(pollInterval = 2000) {
 
   useEffect(() => {
     let active = true
+    // Reset state when gameId changes
+    setState(null)
+    setPrevState(null)
+    stateRef.current = null
 
     async function fetchState() {
       try {
@@ -48,13 +48,13 @@ export function useGameState(pollInterval = 2000) {
             address: ADDRESSES.buckshotGame,
             abi: buckshotGameAbi,
             functionName: 'getGameState',
-            args: [GAME_ID],
+            args: [gameId],
           }),
           client.readContract({
             address: ADDRESSES.buckshotGame,
             abi: buckshotGameAbi,
             functionName: 'getCurrentTurn',
-            args: [GAME_ID],
+            args: [gameId],
           }),
         ])
 
@@ -67,7 +67,7 @@ export function useGameState(pollInterval = 2000) {
               address: ADDRESSES.buckshotGame,
               abi: buckshotGameAbi,
               functionName: 'getMyItems',
-              args: [GAME_ID, p],
+              args: [gameId, p],
             })
           )
         )
@@ -116,7 +116,7 @@ export function useGameState(pollInterval = 2000) {
       active = false
       clearInterval(interval)
     }
-  }, [pollInterval])
+  }, [gameId, pollInterval])
 
   return { state, prevState, error, connected }
 }

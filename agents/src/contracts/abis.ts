@@ -3,6 +3,16 @@ import { type Abi } from 'viem'
 export const buckshotGameAbi = [
   { type: 'function', name: 'TURN_TIMEOUT', inputs: [], outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view' },
   {
+    type: 'function', name: 'bettingDeadline',
+    inputs: [{ name: '', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view',
+  },
+  {
+    type: 'function', name: 'activateGame',
+    inputs: [{ name: 'gameId', type: 'uint256' }],
+    outputs: [], stateMutability: 'nonpayable',
+  },
+  {
     type: 'function', name: 'createGame',
     inputs: [{ name: 'players', type: 'address[]' }, { name: 'buyIn', type: 'uint256' }],
     outputs: [{ name: 'gameId', type: 'uint256' }], stateMutability: 'payable',
@@ -168,6 +178,18 @@ export const buckshotGameAbi = [
       { name: 'player', type: 'address', indexed: true },
       { name: 'placement', type: 'uint8', indexed: false },
     ],
+  },
+] as const satisfies Abi
+
+export const playerProfileAbi = [
+  {
+    type: 'function', name: 'createProfile',
+    inputs: [{ name: '_name', type: 'string' }], outputs: [], stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function', name: 'hasProfile',
+    inputs: [{ name: '', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }], stateMutability: 'view',
   },
 ] as const satisfies Abi
 

@@ -30,8 +30,8 @@ Editar `.env` con tus valores:
 | Variable | Descripción | Default (Anvil local) |
 |----------|-------------|----------------------|
 | `RPC_URL` | URL del RPC | `http://127.0.0.1:8545` |
-| `BUCKSHOT_GAME_ADDRESS` | Address del contrato BuckshotGame | `0x5FbDB2315678afecb367f032d93F642f64180aa3` |
-| `GAME_FACTORY_ADDRESS` | Address del contrato GameFactory | `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512` |
+| `BUCKSHOT_GAME_ADDRESS` | Address del contrato BuckshotGame | `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512` |
+| `GAME_FACTORY_ADDRESS` | Address del contrato GameFactory | `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9` |
 | `AGENT_1_PRIVATE_KEY` | PK del agente 1 (El Calculador) | Anvil account #2 |
 | `AGENT_2_PRIVATE_KEY` | PK del agente 2 (El Agresivo) | Anvil account #3 |
 | `AGENT_3_PRIVATE_KEY` | PK del agente 3 (La Tramposa) | Anvil account #4 |
