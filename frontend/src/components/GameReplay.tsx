@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useCallback } from 'react'
+import { useMemo, useEffect, useCallback, useState } from 'react'
 import { type Address } from 'viem'
 import { useGameReplay, type ReplayState } from '../hooks/useGameReplay'
 import { type GameState } from '../hooks/useGameState'
@@ -10,6 +10,7 @@ import { ShotgunVisual } from './ShotgunVisual'
 import { EventLog } from './EventLog'
 import { RoundBanner } from './RoundBanner'
 import { GameOverScreen } from './GameOverScreen'
+import { PlayerStatsModal } from './PlayerStatsModal'
 
 interface GameReplayProps {
   gameId: bigint
@@ -86,6 +87,8 @@ export function GameReplay({ gameId, onBack }: GameReplayProps) {
     goTo,
     restart,
   } = useGameReplay(gameId)
+
+  const [selectedPlayer, setSelectedPlayer] = useState<{ address: Address; label: string } | null>(null)
 
   // Keyboard controls: arrows left/right for prev/next, space for play/pause
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -218,6 +221,7 @@ export function GameReplay({ gameId, onBack }: GameReplayProps) {
                 isCurrentTurn={gameState.currentTurn?.toLowerCase() === player.toLowerCase()}
                 isAlive={gameState.alive[i] ?? false}
                 label={playerLabel(i)}
+                onClick={() => setSelectedPlayer({ address: player, label: playerLabel(i) })}
               />
             ))}
           </div>
@@ -258,6 +262,15 @@ export function GameReplay({ gameId, onBack }: GameReplayProps) {
               : '???'
           }
           prize={gameState.prizePoolFormatted}
+        />
+      )}
+
+      {/* Player Stats Modal */}
+      {selectedPlayer && (
+        <PlayerStatsModal
+          address={selectedPlayer.address}
+          label={selectedPlayer.label}
+          onClose={() => setSelectedPlayer(null)}
         />
       )}
 

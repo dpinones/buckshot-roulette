@@ -9,6 +9,7 @@ interface PlayerCardProps {
   isCurrentTurn: boolean
   isAlive: boolean
   label: string
+  onClick?: () => void
 }
 
 function truncateAddr(addr: Address): string {
@@ -23,12 +24,14 @@ export function PlayerCard({
   isCurrentTurn,
   isAlive,
   label,
+  onClick,
 }: PlayerCardProps) {
   const hpPercent = maxHp > 0 ? (hp / maxHp) * 100 : 0
   const hpColor = hp <= 1 ? '#dc2626' : hp <= 2 ? '#f5a623' : '#10b981'
 
   return (
     <div
+      onClick={onClick}
       className={`
         relative overflow-hidden transition-all duration-500 rounded-sm
         ${isCurrentTurn && isAlive
@@ -36,6 +39,7 @@ export function PlayerCard({
           : 'border border-white/[0.04]'
         }
         ${!isAlive ? 'opacity-30 saturate-0' : ''}
+        ${onClick ? 'cursor-pointer hover:border-white/[0.12]' : ''}
         bg-panel
       `}
       style={isCurrentTurn && isAlive ? { animation: 'glowPulse 2s ease-in-out infinite' } : undefined}

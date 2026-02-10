@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { type Address } from 'viem'
 import { type GameState } from '../hooks/useGameState'
 import { type GameEvent } from '../hooks/useEventLog'
 import { Phase } from '../config/contracts'
@@ -7,6 +9,7 @@ import { ShotgunVisual } from './ShotgunVisual'
 import { EventLog } from './EventLog'
 import { RoundBanner } from './RoundBanner'
 import { GameOverScreen } from './GameOverScreen'
+import { PlayerStatsModal } from './PlayerStatsModal'
 
 interface GameBoardProps {
   state: GameState
@@ -26,6 +29,7 @@ function playerLabel(index: number): string {
 }
 
 export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) {
+  const [selectedPlayer, setSelectedPlayer] = useState<{ address: Address; label: string } | null>(null)
   const players = state.players
   const maxHp = maxHpForRound(state.currentRound)
   const isFinished = state.phase === Phase.FINISHED
@@ -95,6 +99,7 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
                 isCurrentTurn={state.currentTurn?.toLowerCase() === player.toLowerCase()}
                 isAlive={state.alive[i] ?? false}
                 label={playerLabel(i)}
+                onClick={() => setSelectedPlayer({ address: player, label: playerLabel(i) })}
               />
             ))}
           </div>
@@ -135,6 +140,15 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
               : '???'
           }
           prize={state.prizePoolFormatted}
+        />
+      )}
+
+      {/* Player Stats Modal */}
+      {selectedPlayer && (
+        <PlayerStatsModal
+          address={selectedPlayer.address}
+          label={selectedPlayer.label}
+          onClose={() => setSelectedPlayer(null)}
         />
       )}
     </div>
