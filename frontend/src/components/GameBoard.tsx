@@ -12,6 +12,7 @@ interface GameBoardProps {
   state: GameState
   prevState: GameState | null
   events: GameEvent[]
+  onBack?: () => void
 }
 
 function maxHpForRound(round: number): number {
@@ -24,7 +25,7 @@ function playerLabel(index: number): string {
   return `P${index + 1}`
 }
 
-export function GameBoard({ state, prevState, events }: GameBoardProps) {
+export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) {
   const players = state.players
   const maxHp = maxHpForRound(state.currentRound)
   const isFinished = state.phase === Phase.FINISHED
@@ -43,6 +44,16 @@ export function GameBoard({ state, prevState, events }: GameBoardProps) {
       <header className="border-b border-white/5 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-6">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="text-xs font-mono text-white/30 hover:text-white/60 transition-colors
+                           border border-white/10 hover:border-white/20 rounded px-2.5 py-1
+                           cursor-pointer"
+              >
+                LOBBY
+              </button>
+            )}
             <h1 className="text-xl font-mono font-bold tracking-[0.15em] text-white/90">
               BUCKSHOT<span className="text-blood">_</span>ROULETTE
             </h1>

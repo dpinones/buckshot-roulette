@@ -171,6 +171,18 @@ export const buckshotGameAbi = [
   },
 ] as const satisfies Abi
 
+export const playerProfileAbi = [
+  {
+    type: 'function', name: 'createProfile',
+    inputs: [], outputs: [], stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function', name: 'hasProfile',
+    inputs: [{ name: '', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }], stateMutability: 'view',
+  },
+] as const satisfies Abi
+
 export const gameFactoryAbi = [
   {
     type: 'function', name: 'joinQueue',

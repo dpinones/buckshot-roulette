@@ -1,7 +1,7 @@
 import { type Address, formatEther } from 'viem'
 import { publicClient, walletClients } from '../contracts/client.js'
 import { addresses } from '../contracts/addresses.js'
-import { gameFactoryAbi, buckshotGameAbi } from '../contracts/abis.js'
+import { gameFactoryAbi, buckshotGameAbi, playerProfileAbi } from '../contracts/abis.js'
 import { type Agent } from '../agents/types.js'
 import { config } from '../config.js'
 import { log } from '../logger.js'
@@ -17,16 +17,42 @@ function sleep(ms: number): Promise<void> {
 export async function createMatch(agents: Agent[]): Promise<bigint | null> {
   const factoryAddr = addresses.gameFactory as Address
   const factoryContract = { address: factoryAddr, abi: gameFactoryAbi } as const
+  const profileAddr = addresses.playerProfile as Address
+  const profileContract = { address: profileAddr, abi: playerProfileAbi } as const
   const buyIn = config.buyIn
 
   log.system(`Creating new match (buy-in: ${formatEther(buyIn)} ETH)...`)
 
-  // Check balances
+  // Ensure all agents have profiles + sufficient balance
   for (const agent of agents) {
-    const balance = await publicClient.getBalance({ address: agent.address })
+    const [balance, hasProfile] = await Promise.all([
+      publicClient.getBalance({ address: agent.address }),
+      publicClient.readContract({
+        ...profileContract,
+        functionName: 'hasProfile',
+        args: [agent.address],
+      }) as Promise<boolean>,
+    ])
+
     if (balance < buyIn * 2n) {
       log.error(agent.name, `Insufficient balance: ${formatEther(balance)} ETH`)
       return null
+    }
+
+    if (!hasProfile) {
+      try {
+        const hash = await agent.walletClient.writeContract({
+          ...profileContract,
+          functionName: 'createProfile',
+          gas: 100_000n,
+        } as any)
+        await publicClient.waitForTransactionReceipt({ hash })
+        log.info(agent.name, 'Created player profile')
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        log.error(agent.name, `Failed to create profile: ${msg.slice(0, 80)}`)
+        return null
+      }
     }
   }
 
