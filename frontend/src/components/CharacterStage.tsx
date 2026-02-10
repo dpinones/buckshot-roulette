@@ -46,6 +46,10 @@ export function CharacterStage({ players, alive, currentTurnIndex, names, isThin
     return names[addr.toLowerCase()] || ''
   }, [players, names])
 
+  // Keep a ref so blink closures always read the latest names
+  const getOnChainNameRef = useRef(getOnChainName)
+  getOnChainNameRef.current = getOnChainName
+
   // Calculate positions
   const centerIdx = currentTurnIndex
   const leftIdx = getPrevAliveIdx(alive, centerIdx)
@@ -103,7 +107,7 @@ export function CharacterStage({ players, alive, currentTurnIndex, names, isThin
   useEffect(() => {
     function preload() {
       players.forEach((_, i) => {
-        const char = getCharacter(getOnChainName(i))
+        const char = getCharacter(getOnChainNameRef.current(i))
         const img = new Image()
         img.src = char.blinkImg
       })
@@ -123,7 +127,7 @@ export function CharacterStage({ players, alive, currentTurnIndex, names, isThin
       const img = slot?.querySelector('img.char-img') as HTMLImageElement | null
       if (!img) { scheduleBlink(idx); return }
 
-      const char = getCharacter(getOnChainName(idx))
+      const char = getCharacter(getOnChainNameRef.current(idx))
       img.src = char.blinkImg
 
       const blinkDuration = 120 + Math.random() * 80
