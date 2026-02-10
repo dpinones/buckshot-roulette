@@ -1,3 +1,60 @@
+# Buckshot Roulette
+
+Fully on-chain multiplayer game built with Foundry on Monad testnet. No backend; all game state lives in smart contracts. Includes a React spectator frontend and LLM-powered AI agents.
+
+## Betting System (BuckshotBetting)
+
+### Flujo general
+
+1. **Se crea un game** — arranca en fase `WAITING` (no `ACTIVE`)
+2. **30 segundos de ventana** — los espectadores apuestan durante este periodo
+3. **Alguien llama `activateGame()`** — el juego pasa a `ACTIVE` y empieza la ronda 1
+4. **El juego termina** — los ganadores llaman `claimWinnings()` para cobrar
+
+### 3 tipos de apuesta
+
+| Tipo | Pregunta | Ejemplo |
+|------|----------|---------|
+| **WINNER** | Quien gana el game? | "Apuesto 0.1 ETH a que P1 gana" |
+| **FIRST_DEATH** | Quien muere en posicion X? | "Apuesto a que P3 muere primero (posicion 1)" |
+| **OVER_KILLS** | Un jugador hara >= N kills? | "Apuesto YES a que P1 hace >= 2 kills" |
+
+### Pool system (parimutuel)
+
+Cada combinacion unica crea un **pool** identificado por un `bytes32` key:
+
+- `WINNER` — 1 pool por game, con un outcome por jugador
+- `FIRST_DEATH` — 1 pool por posicion (1ro, 2do, 3ro), con un outcome por jugador
+- `OVER_KILLS` — 1 pool por (jugador, threshold), con outcomes YES/NO
+
+Los que apuestan al outcome ganador se **reparten el pool entero** proporcionalmente a cuanto apostaron, menos 2% de fee.
+
+**Ejemplo**: Pool de 4 ETH. Bettor A puso 2 ETH en P1, Bettor B puso 1 ETH en P1, Bettor C puso 1 ETH en P2. Si gana P1:
+- Fee: 0.08 ETH (2%), distributable: 3.92 ETH
+- A recibe: (2/3) * 3.92 = 2.61 ETH
+- B recibe: (1/3) * 3.92 = 1.30 ETH
+- C no recibe nada
+
+Si **nadie** aposto al outcome ganador, se hace refund proporcional (menos el fee).
+
+### Resolucion
+
+Es **lazy** — el pool se resuelve la primera vez que alguien llama `claimWinnings()`. El contrato lee del `BuckshotGame`:
+- `WINNER`: lee `getGameState().winner`
+- `FIRST_DEATH`: lee `deathOrder(gameId, player)`
+- `OVER_KILLS`: lee `gameKills(gameId, player) >= threshold`
+
+### Tracking en BuckshotGame
+
+Para soportar las apuestas se agregaron al game contract:
+- `deathOrder[gameId][player]` — 1 = murio primero, 2 = segundo, etc.
+- `deathCount[gameId]` — contador incremental
+- `gameKills[gameId][player]` — kills por jugador en ese game
+
+Estos se actualizan en `_eliminatePlayer()` cada vez que un jugador es eliminado.
+
+---
+
 ## Monad-flavored Foundry
 
 > [!NOTE]

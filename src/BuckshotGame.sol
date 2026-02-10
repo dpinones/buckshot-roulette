@@ -68,6 +68,12 @@ contract BuckshotGame {
     mapping(uint256 => mapping(address => bool)) public currentShellKnown;
     mapping(uint256 => mapping(address => uint8)) public knownShellValue;
 
+    uint256 public constant BETTING_WINDOW = 120 seconds;
+    mapping(uint256 => uint256) public bettingDeadline;
+    mapping(uint256 => mapping(address => uint8)) public deathOrder;
+    mapping(uint256 => uint8) public deathCount;
+    mapping(uint256 => mapping(address => uint8)) public gameKills;
+
     // ── Events ──────────────────────────────────────────────────
     event GameCreated(uint256 indexed gameId, address[] players, uint256 buyIn);
     event RoundStarted(uint256 indexed gameId, uint8 round);
@@ -83,6 +89,7 @@ contract BuckshotGame {
     event RoundEnded(uint256 indexed gameId, uint8 round);
     event GameEnded(uint256 indexed gameId, address indexed winner, uint256 prize);
     event ItemsDistributed(uint256 indexed gameId, uint8 round);
+    event GameActivated(uint256 indexed gameId);
 
     // ── Errors ──────────────────────────────────────────────────
     error NotYourTurn();
@@ -93,6 +100,8 @@ contract BuckshotGame {
     error TurnNotExpired();
     error GameAlreadyFinished();
     error InvalidPlayerCount();
+    error BettingWindowActive();
+    error GameNotWaiting();
 
     // ── Modifiers ───────────────────────────────────────────────
     modifier onlyCurrentTurn(uint256 gameId) {
@@ -124,13 +133,24 @@ contract BuckshotGame {
             g.alive.push(true);
         }
 
-        g.phase = GamePhase.ACTIVE;
+        g.phase = GamePhase.WAITING;
         g.currentRound = 1;
+
+        bettingDeadline[gameId] = block.timestamp + BETTING_WINDOW;
 
         emit GameCreated(gameId, players, buyIn);
 
-        _startRound(gameId);
         return gameId;
+    }
+
+    // ── Activate Game (after betting window) ─────────────────────
+    function activateGame(uint256 gameId) external {
+        Game storage g = games[gameId];
+        if (g.phase != GamePhase.WAITING) revert GameNotWaiting();
+        if (block.timestamp < bettingDeadline[gameId]) revert BettingWindowActive();
+        g.phase = GamePhase.ACTIVE;
+        emit GameActivated(gameId);
+        _startRound(gameId);
     }
 
     // ── Player Actions ──────────────────────────────────────────
@@ -424,6 +444,10 @@ contract BuckshotGame {
                 g.alive[i] = false;
                 g.aliveCount--;
                 emit PlayerEliminated(gameId, victim, g.aliveCount + 1);
+
+                deathCount[gameId]++;
+                deathOrder[gameId][victim] = deathCount[gameId];
+                gameKills[gameId][killer]++;
 
                 profileContract.recordKill(killer);
                 profileContract.recordDeath(victim);

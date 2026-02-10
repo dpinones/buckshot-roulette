@@ -4,10 +4,11 @@ import { type Abi } from 'viem'
 // Deploy order: PlayerProfile (nonce 0), BuckshotGame (nonce 1),
 // setGameContract (nonce 2), GameFactory (nonce 3), BuckshotWager (nonce 4)
 const ANVIL_ADDRESSES = {
-  playerProfile: '0x5FbDB2315678afecb367f032d93F642f64180aa3' as const,
-  buckshotGame: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as const,
-  gameFactory: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9' as const,
-  buckshotWager: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9' as const,
+  playerProfile: '0x5fbdb2315678afecb367f032d93f642f64180aa3' as const,
+  buckshotGame: '0xe7f1725e7734ce288f8367e1bb143e90bb3f0512' as const,
+  gameFactory: '0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9' as const,
+  buckshotWager: '0xdc64a140aa3e981100a9beca4e685f962f0cf6c9' as const,
+  buckshotBetting: '0x5fc8d32690cc91d4c39d9d3abcbd16989f875707' as const,
 }
 
 // Monad testnet addresses — update after deploying with `make deploy`
@@ -16,6 +17,7 @@ const TESTNET_ADDRESSES = {
   buckshotGame: '0x0000000000000000000000000000000000000000' as const,
   gameFactory: '0x0000000000000000000000000000000000000000' as const,
   buckshotWager: '0x0000000000000000000000000000000000000000' as const,
+  buckshotBetting: '0x0000000000000000000000000000000000000000' as const,
 }
 
 export const ADDRESSES =
@@ -106,6 +108,40 @@ export const buckshotGameAbi = [
     outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
   },
+  {
+    type: 'function',
+    name: 'bettingDeadline',
+    inputs: [{ name: 'gameId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'activateGame',
+    inputs: [{ name: 'gameId', type: 'uint256' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'deathOrder',
+    inputs: [
+      { name: 'gameId', type: 'uint256' },
+      { name: 'player', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint8' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'gameKills',
+    inputs: [
+      { name: 'gameId', type: 'uint256' },
+      { name: 'player', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint8' }],
+    stateMutability: 'view',
+  },
 ] as const satisfies Abi
 
 export const gameFactoryAbi = [
@@ -158,6 +194,122 @@ export const buckshotWagerAbi = [
     stateMutability: 'view',
   },
 ] as const satisfies Abi
+
+export const buckshotBettingAbi = [
+  {
+    type: 'function',
+    name: 'placeBet',
+    inputs: [
+      { name: 'gameId', type: 'uint256' },
+      { name: 'betType', type: 'uint8' },
+      { name: 'betParams', type: 'bytes' },
+    ],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    name: 'claimWinnings',
+    inputs: [{ name: 'gameId', type: 'uint256' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'getPoolOdds',
+    inputs: [
+      { name: 'poolKey', type: 'bytes32' },
+      { name: 'outcomeKeys', type: 'bytes32[]' },
+    ],
+    outputs: [{ name: '', type: 'uint256[]' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getMyBets',
+    inputs: [
+      { name: 'gameId', type: 'uint256' },
+      { name: 'bettor', type: 'address' },
+    ],
+    outputs: [
+      { name: 'poolKeys', type: 'bytes32[]' },
+      { name: 'outcomeKeys', type: 'bytes32[]' },
+      { name: 'amounts', type: 'uint256[]' },
+      { name: 'claimed', type: 'bool[]' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'winnerPoolKey',
+    inputs: [{ name: 'gameId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'bytes32' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    name: 'firstDeathPoolKey',
+    inputs: [
+      { name: 'gameId', type: 'uint256' },
+      { name: 'position', type: 'uint8' },
+    ],
+    outputs: [{ name: '', type: 'bytes32' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    name: 'overKillsPoolKey',
+    inputs: [
+      { name: 'gameId', type: 'uint256' },
+      { name: 'player', type: 'address' },
+      { name: 'threshold', type: 'uint8' },
+    ],
+    outputs: [{ name: '', type: 'bytes32' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    name: 'playerOutcomeKey',
+    inputs: [{ name: 'player', type: 'address' }],
+    outputs: [{ name: '', type: 'bytes32' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    name: 'boolOutcomeKey',
+    inputs: [{ name: 'value', type: 'bool' }],
+    outputs: [{ name: '', type: 'bytes32' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    name: 'poolTotal',
+    inputs: [{ name: 'poolKey', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'MIN_BET',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getKillThresholds',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8[]' }],
+    stateMutability: 'view',
+  },
+] as const satisfies Abi
+
+// BetType enum values
+export const BetType = {
+  WINNER: 0,
+  FIRST_DEATH: 1,
+  OVER_KILLS: 2,
+} as const
 
 export const ITEM_NAMES: Record<number, string> = {
   0: 'NONE',

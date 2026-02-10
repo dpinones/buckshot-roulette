@@ -141,6 +141,7 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
           }
           prize={state.prizePoolFormatted}
           onHome={onBack}
+          gameId={state.id}
         />
       )}
 

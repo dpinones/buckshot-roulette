@@ -3,6 +3,16 @@ import { type Abi } from 'viem'
 export const buckshotGameAbi = [
   { type: 'function', name: 'TURN_TIMEOUT', inputs: [], outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view' },
   {
+    type: 'function', name: 'bettingDeadline',
+    inputs: [{ name: '', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view',
+  },
+  {
+    type: 'function', name: 'activateGame',
+    inputs: [{ name: 'gameId', type: 'uint256' }],
+    outputs: [], stateMutability: 'nonpayable',
+  },
+  {
     type: 'function', name: 'createGame',
     inputs: [{ name: 'players', type: 'address[]' }, { name: 'buyIn', type: 'uint256' }],
     outputs: [{ name: 'gameId', type: 'uint256' }], stateMutability: 'payable',

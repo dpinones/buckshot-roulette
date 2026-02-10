@@ -107,8 +107,8 @@ export function useLobbyState(pollInterval = 3000) {
 
         if (!active) return
 
-        // Filter to only active games
-        const activeGames = gameResults.filter((g) => g.phase === Phase.ACTIVE)
+        // Filter to active and waiting (betting) games
+        const activeGames = gameResults.filter((g) => g.phase === Phase.ACTIVE || g.phase === Phase.WAITING)
 
         setLobby({
           queues: queueResults,

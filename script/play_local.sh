@@ -159,6 +159,7 @@ PROFILE_ADDR=$(echo "$DEPLOY_OUTPUT" | grep "PlayerProfile deployed" | awk '{pri
 GAME_ADDR=$(echo "$DEPLOY_OUTPUT" | grep "BuckshotGame deployed" | awk '{print $NF}')
 FACTORY_ADDR=$(echo "$DEPLOY_OUTPUT" | grep "GameFactory deployed" | awk '{print $NF}')
 WAGER_ADDR=$(echo "$DEPLOY_OUTPUT" | grep "BuckshotWager deployed" | awk '{print $NF}')
+BETTING_ADDR=$(echo "$DEPLOY_OUTPUT" | grep "BuckshotBetting deployed" | awk '{print $NF}')
 
 if [ -z "$GAME_ADDR" ]; then
   echo "ERROR: Deploy fallo"
@@ -169,10 +170,11 @@ fi
 # Esperar a que los contratos esten confirmados on-chain
 sleep 2
 
-echo "  PlayerProfile: $PROFILE_ADDR"
-echo "  BuckshotGame:  $GAME_ADDR"
-echo "  GameFactory:   $FACTORY_ADDR"
-echo "  BuckshotWager: $WAGER_ADDR"
+echo "  PlayerProfile:  $PROFILE_ADDR"
+echo "  BuckshotGame:   $GAME_ADDR"
+echo "  GameFactory:    $FACTORY_ADDR"
+echo "  BuckshotWager:  $WAGER_ADDR"
+echo "  BuckshotBetting: $BETTING_ADDR"
 
 # ── 3. Crear partida via Factory ───────────────────────────
 
@@ -238,7 +240,7 @@ for ATTEMPT in 1 2 3 4 5; do
 
   if tx_succeeded "$START_RESULT"; then
     PHASE=$(cast_call "getPhase(uint256)(uint8)" $GAME_ID)
-    if [ "$PHASE" = "1" ]; then
+    if [ "$PHASE" = "0" ]; then
       GAME_CREATED=true
       break
     fi
@@ -251,6 +253,18 @@ if [ "$GAME_CREATED" != "true" ]; then
   echo "ERROR: No se pudo crear el juego despues de 5 intentos"
   exit 1
 fi
+
+# Advance past the 120s betting window and activate the game
+echo "  Avanzando 121s (betting window)..."
+cast rpc evm_increaseTime 121 --rpc-url "$RPC" > /dev/null 2>&1
+cast rpc evm_mine --rpc-url "$RPC" > /dev/null 2>&1
+ACTIVATE_RESULT=$(cast_send "$PK1" "activateGame(uint256)" $GAME_ID)
+if ! tx_succeeded "$ACTIVATE_RESULT"; then
+  echo "ERROR: No se pudo activar el juego"
+  echo "$ACTIVATE_RESULT"
+  exit 1
+fi
+echo "  Game activated!"
 
 echo "  Game ID: $GAME_ID | Prize Pool: 0.00002 ETH"
 echo "  P1: $P1"

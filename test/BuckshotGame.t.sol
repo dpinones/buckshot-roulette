@@ -53,6 +53,8 @@ contract BuckshotGameTest is Test {
         players[0] = player1;
         players[1] = player2;
         gameId = game.createGame{value: BUY_IN * 2}(players, BUY_IN);
+        vm.warp(block.timestamp + 121);
+        game.activateGame(gameId);
     }
 
     function _createGame4Players() internal returns (uint256 gameId) {
@@ -62,6 +64,8 @@ contract BuckshotGameTest is Test {
         players[2] = player3;
         players[3] = player4;
         gameId = game.createGame{value: BUY_IN * 4}(players, BUY_IN);
+        vm.warp(block.timestamp + 121);
+        game.activateGame(gameId);
     }
 
     // ── PlayerProfile Tests ─────────────────────────────────────
@@ -203,15 +207,26 @@ contract BuckshotGameTest is Test {
     // ── BuckshotGame Tests ──────────────────────────────────────
 
     function test_createGame() public {
-        uint256 gameId = _createGame2Players();
+        // createGame now starts in WAITING phase
+        address[] memory players = new address[](2);
+        players[0] = player1;
+        players[1] = player2;
+        uint256 gameId = game.createGame{value: BUY_IN * 2}(players, BUY_IN);
 
         BuckshotGame.GameView memory state = game.getGameState(gameId);
         assertEq(state.players.length, 2);
         assertEq(state.players[0], player1);
         assertEq(state.players[1], player2);
-        assertEq(uint8(state.phase), uint8(BuckshotGame.GamePhase.ACTIVE));
+        assertEq(uint8(state.phase), uint8(BuckshotGame.GamePhase.WAITING));
         assertEq(state.currentRound, 1);
         assertEq(state.prizePool, BUY_IN * 2);
+
+        // After betting window, activate
+        vm.warp(block.timestamp + 121);
+        game.activateGame(gameId);
+
+        state = game.getGameState(gameId);
+        assertEq(uint8(state.phase), uint8(BuckshotGame.GamePhase.ACTIVE));
     }
 
     function test_createGame_reverts_invalidCount() public {

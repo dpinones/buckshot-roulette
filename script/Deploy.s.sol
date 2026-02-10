@@ -6,6 +6,7 @@ import {PlayerProfile} from "../src/PlayerProfile.sol";
 import {BuckshotGame} from "../src/BuckshotGame.sol";
 import {GameFactory} from "../src/GameFactory.sol";
 import {BuckshotWager} from "../src/BuckshotWager.sol";
+import {BuckshotBetting} from "../src/BuckshotBetting.sol";
 
 contract DeployScript is Script {
     function run() external {
@@ -29,6 +30,10 @@ contract DeployScript is Script {
         // 5. Deploy BuckshotWager (points to BuckshotGame)
         BuckshotWager wager = new BuckshotWager(address(game));
         console.log("BuckshotWager deployed at:", address(wager));
+
+        // 6. Deploy BuckshotBetting (points to BuckshotGame)
+        BuckshotBetting betting = new BuckshotBetting(address(game));
+        console.log("BuckshotBetting deployed at:", address(betting));
 
         vm.stopBroadcast();
     }

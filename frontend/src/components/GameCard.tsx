@@ -1,4 +1,5 @@
 import { type GameSummary } from '../hooks/useLobbyState'
+import { Phase } from '../config/contracts'
 
 interface GameCardProps {
   game: GameSummary
@@ -23,6 +24,11 @@ export function GameCard({ game, onClick }: GameCardProps) {
           Game #{game.id.toString()}
         </span>
         <div className="flex items-center gap-2">
+          {game.phase === Phase.WAITING && (
+            <span className="text-[8px] font-mono px-1.5 py-0.5 bg-gold/10 text-gold/80 border border-gold/20 rounded-sm animate-pulse">
+              BETTING
+            </span>
+          )}
           <span className="text-[8px] font-mono px-1.5 py-0.5 bg-blood/10 text-blood/70 border border-blood/15 rounded-sm">
             R{game.currentRound}
           </span>

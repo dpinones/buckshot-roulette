@@ -1,17 +1,55 @@
+import { useState } from 'react'
 import { type Address } from 'viem'
+import { useAccount, useWriteContract } from 'wagmi'
+import { ADDRESSES, buckshotBettingAbi } from '../config/contracts'
+import { isLocal, burnerWalletClients, publicClient } from '../config/wagmi'
 
 interface GameOverScreenProps {
   winner: Address
   label: string
   prize: string
   onHome?: () => void
+  gameId?: bigint
 }
 
 function truncateAddr(addr: Address): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
-export function GameOverScreen({ winner, label, prize, onHome }: GameOverScreenProps) {
+export function GameOverScreen({ winner, label, prize, onHome, gameId }: GameOverScreenProps) {
+  const { address: wallet } = useAccount()
+  const { writeContract, isPending: wagmiPending } = useWriteContract()
+  const [localPending, setLocalPending] = useState(false)
+  const isPending = localPending || wagmiPending
+
+  async function handleClaim() {
+    if (!gameId) return
+    const wc = wallet ? burnerWalletClients[wallet.toLowerCase()] : null
+    if (isLocal && wc) {
+      setLocalPending(true)
+      try {
+        const hash = await wc.writeContract({
+          address: ADDRESSES.buckshotBetting,
+          abi: buckshotBettingAbi,
+          functionName: 'claimWinnings',
+          args: [gameId],
+        } as any)
+        await publicClient.waitForTransactionReceipt({ hash })
+      } catch (e) {
+        console.error('claimWinnings failed:', e)
+      } finally {
+        setLocalPending(false)
+      }
+    } else {
+      writeContract({
+        address: ADDRESSES.buckshotBetting,
+        abi: buckshotBettingAbi,
+        functionName: 'claimWinnings',
+        args: [gameId],
+      })
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm animate-[fadeIn_0.5s_ease-out]">
       {/* Blood drip lines */}
@@ -59,6 +97,19 @@ export function GameOverScreen({ winner, label, prize, onHome }: GameOverScreenP
             {prize} ETH
           </div>
         </div>
+
+        {/* Claim betting winnings */}
+        {wallet && gameId !== undefined && (
+          <button
+            onClick={handleClaim}
+            disabled={isPending}
+            className="text-[10px] font-mono uppercase tracking-[0.15em] text-gold/80 hover:text-gold
+                       border border-gold/30 hover:border-gold/60 px-6 py-2.5
+                       cursor-pointer rounded-sm transition-colors disabled:opacity-30"
+          >
+            {isPending ? 'Claiming...' : 'Claim Betting Winnings'}
+          </button>
+        )}
 
         {/* Home button */}
         {onHome && (
