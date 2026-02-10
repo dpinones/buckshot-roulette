@@ -1,5 +1,8 @@
+import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import { useLobbyState, type QueueInfo } from '../hooks/useLobbyState'
 import { GameCard } from './GameCard'
+import { isLocal, BURNER_ACCOUNTS } from '../config/wagmi'
 
 interface LobbyProps {
   onSelectGame: (gameId: bigint) => void
@@ -69,6 +72,48 @@ function QueueCard({ queue }: { queue: QueueInfo }) {
   )
 }
 
+function BurnerWallets() {
+  const { address } = useAccount()
+  const { connect, connectors } = useConnect()
+  const { disconnect } = useDisconnect()
+
+  // Mock connectors are the ones matching burner accounts
+  const burnerConnectors = connectors.filter((c) => c.type === 'mock')
+
+  if (address) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-[9px] font-mono text-neon/60">
+          {shortAddr(address)}
+        </span>
+        <button
+          onClick={() => disconnect()}
+          className="text-[8px] font-mono text-white/20 hover:text-blood/60 transition-colors cursor-pointer"
+        >
+          [x]
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[8px] uppercase tracking-[0.2em] text-white/15">dev</span>
+      {burnerConnectors.map((connector, i) => (
+        <button
+          key={connector.uid}
+          onClick={() => connect({ connector })}
+          className="text-[9px] font-mono text-white/25 hover:text-neon/60 transition-colors
+                     border border-white/[0.06] hover:border-neon/20 px-2 py-0.5
+                     cursor-pointer rounded-sm"
+        >
+          {shortAddr(BURNER_ACCOUNTS[i])}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
   const { queues, games, connected, error } = useLobbyState(3000)
 
@@ -81,9 +126,7 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
             <h1 className="font-display text-2xl font-bold tracking-[0.12em] text-white/85">
               BUCKSHOT<span className="text-blood">_</span>ROULETTE
             </h1>
-            <span className="text-[8px] uppercase tracking-[0.3em] text-white/10 border border-white/[0.06] px-2 py-0.5 rounded-sm">
-              Spectator
-            </span>
+            {isLocal ? <BurnerWallets /> : <ConnectButton chainStatus="icon" showBalance={false} accountStatus="address" />}
           </div>
 
           <div className="flex items-center gap-4">

@@ -3,12 +3,23 @@ import { type Abi } from 'viem'
 // Deterministic Anvil addresses (same PK always deploys to same addrs)
 // Deploy order: PlayerProfile (nonce 0), BuckshotGame (nonce 1),
 // setGameContract (nonce 2), GameFactory (nonce 3), BuckshotWager (nonce 4)
-export const ADDRESSES = {
+const ANVIL_ADDRESSES = {
   playerProfile: '0x5FbDB2315678afecb367f032d93F642f64180aa3' as const,
   buckshotGame: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as const,
   gameFactory: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9' as const,
   buckshotWager: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9' as const,
 }
+
+// Monad testnet addresses — update after deploying with `make deploy`
+const TESTNET_ADDRESSES = {
+  playerProfile: '0x0000000000000000000000000000000000000000' as const,
+  buckshotGame: '0x0000000000000000000000000000000000000000' as const,
+  gameFactory: '0x0000000000000000000000000000000000000000' as const,
+  buckshotWager: '0x0000000000000000000000000000000000000000' as const,
+}
+
+export const ADDRESSES =
+  import.meta.env.VITE_NETWORK === 'testnet' ? TESTNET_ADDRESSES : ANVIL_ADDRESSES
 
 // Player addresses from Anvil default accounts
 export const PLAYERS = {

@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { createPublicClient, http, formatEther, type Address } from 'viem'
-import { foundry } from 'viem/chains'
+import { formatEther, type Address } from 'viem'
 import {
   ADDRESSES,
   buckshotGameAbi,
 } from '../config/contracts'
+import { publicClient } from '../config/wagmi'
 
 export interface GameState {
   id: bigint
@@ -25,10 +25,7 @@ export interface GameState {
   playerItems: Record<string, readonly number[]>
 }
 
-export const client = createPublicClient({
-  chain: foundry,
-  transport: http('http://127.0.0.1:8545'),
-})
+export const client = publicClient
 
 export function useGameState(gameId: bigint, pollInterval = 2000) {
   const [state, setState] = useState<GameState | null>(null)
