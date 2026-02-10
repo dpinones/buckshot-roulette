@@ -44,7 +44,8 @@ export async function createMatch(agents: Agent[]): Promise<bigint | null> {
         const hash = await agent.walletClient.writeContract({
           ...profileContract,
           functionName: 'createProfile',
-          gas: 100_000n,
+          args: [agent.name],
+          gas: 200_000n,
         } as any)
         await publicClient.waitForTransactionReceipt({ hash })
         log.info(agent.name, 'Created player profile')

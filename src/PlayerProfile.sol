@@ -18,6 +18,7 @@ contract PlayerProfile {
     address public gameContract;
 
     mapping(address => bool) public hasProfile;
+    mapping(address => string) public playerName;
     mapping(address => Stats) internal stats;
 
     // ── Events ──────────────────────────────────────────────────
@@ -42,9 +43,10 @@ contract PlayerProfile {
 
     // ── Public Functions ────────────────────────────────────────
 
-    function createProfile() external {
+    function createProfile(string calldata _name) external {
         if (hasProfile[msg.sender]) revert AlreadyRegistered();
         hasProfile[msg.sender] = true;
+        playerName[msg.sender] = _name;
         emit ProfileCreated(msg.sender);
     }
 
@@ -58,6 +60,10 @@ contract PlayerProfile {
 
     function getStats(address player) external view returns (Stats memory) {
         return stats[player];
+    }
+
+    function getName(address player) external view returns (string memory) {
+        return playerName[player];
     }
 
     // ── Game-only Update Functions ──────────────────────────────

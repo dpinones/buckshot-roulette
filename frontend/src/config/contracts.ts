@@ -204,6 +204,13 @@ export const playerProfileAbi = [
     outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'view',
   },
+  {
+    type: 'function',
+    name: 'getName',
+    inputs: [{ name: 'player', type: 'address' }],
+    outputs: [{ name: '', type: 'string' }],
+    stateMutability: 'view',
+  },
 ] as const satisfies Abi
 
 // BuckshotGame event ABIs (for getLogs)

@@ -4,6 +4,7 @@ import { useGameReplay, type ReplayState } from '../hooks/useGameReplay'
 import { type GameState } from '../hooks/useGameState'
 import { type GameEvent } from '../hooks/useEventLog'
 import { Phase } from '../config/contracts'
+import { usePlayerNames } from '../hooks/usePlayerNames'
 import { PlayerCard } from './PlayerCard'
 import { ShellIndicator } from './ShellIndicator'
 import { ShotgunVisual } from './ShotgunVisual'
@@ -21,10 +22,6 @@ function maxHpForRound(round: number): number {
   if (round === 1) return 2
   if (round === 2) return 4
   return 5
-}
-
-function playerLabel(index: number): string {
-  return `P${index + 1}`
 }
 
 /** Convert ReplayState into the GameState shape that GameBoard components expect */
@@ -89,6 +86,22 @@ export function GameReplay({ gameId, onBack }: GameReplayProps) {
   } = useGameReplay(gameId)
 
   const [selectedPlayer, setSelectedPlayer] = useState<{ address: Address; label: string } | null>(null)
+
+  // Get player list from first event that has players
+  const replayPlayers = useMemo(() => {
+    for (const e of events) {
+      if (e.state.players.length > 0) return e.state.players
+    }
+    return [] as Address[]
+  }, [events])
+
+  const names = usePlayerNames(replayPlayers)
+
+  function getLabel(index: number): string {
+    const addr = replayPlayers[index]
+    const name = addr ? names[addr.toLowerCase()] : ''
+    return name || `P${index + 1}`
+  }
 
   // Keyboard controls: arrows left/right for prev/next, space for play/pause
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -220,8 +233,8 @@ export function GameReplay({ gameId, onBack }: GameReplayProps) {
                 items={gameState.playerItems[player.toLowerCase()] ?? []}
                 isCurrentTurn={gameState.currentTurn?.toLowerCase() === player.toLowerCase()}
                 isAlive={gameState.alive[i] ?? false}
-                label={playerLabel(i)}
-                onClick={() => setSelectedPlayer({ address: player, label: playerLabel(i) })}
+                label={getLabel(i)}
+                onClick={() => setSelectedPlayer({ address: player, label: getLabel(i) })}
               />
             ))}
           </div>
@@ -251,15 +264,12 @@ export function GameReplay({ gameId, onBack }: GameReplayProps) {
         <GameOverScreen
           winner={gameState.winner}
           label={
-            players.findIndex(
-              (p) => p.toLowerCase() === gameState.winner.toLowerCase()
-            ) >= 0
-              ? playerLabel(
-                  players.findIndex(
-                    (p) => p.toLowerCase() === gameState.winner.toLowerCase()
-                  )
-                )
-              : '???'
+            (() => {
+              const idx = players.findIndex(
+                (p) => p.toLowerCase() === gameState.winner.toLowerCase()
+              )
+              return idx >= 0 ? getLabel(idx) : '???'
+            })()
           }
           prize={gameState.prizePoolFormatted}
           onHome={onBack}

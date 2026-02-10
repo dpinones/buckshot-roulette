@@ -37,13 +37,13 @@ contract BuckshotGameTest is Test {
 
         // Create profiles for all test players
         vm.prank(player1);
-        profile.createProfile();
+        profile.createProfile("Player1");
         vm.prank(player2);
-        profile.createProfile();
+        profile.createProfile("Player2");
         vm.prank(player3);
-        profile.createProfile();
+        profile.createProfile("Player3");
         vm.prank(player4);
-        profile.createProfile();
+        profile.createProfile("Player4");
     }
 
     // ── Helper ──────────────────────────────────────────────────
@@ -71,9 +71,10 @@ contract BuckshotGameTest is Test {
         assertFalse(profile.hasProfile(newPlayer));
 
         vm.prank(newPlayer);
-        profile.createProfile();
+        profile.createProfile("TestAgent");
 
         assertTrue(profile.hasProfile(newPlayer));
+        assertEq(profile.getName(newPlayer), "TestAgent");
 
         PlayerProfile.Stats memory s = profile.getStats(newPlayer);
         assertEq(s.gamesPlayed, 0);
@@ -88,7 +89,7 @@ contract BuckshotGameTest is Test {
     function test_profile_createProfile_reverts_duplicate() public {
         vm.prank(player1);
         vm.expectRevert(PlayerProfile.AlreadyRegistered.selector);
-        profile.createProfile();
+        profile.createProfile("Player1");
     }
 
     function test_profile_stats_after_game() public {

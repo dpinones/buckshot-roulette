@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { type Address } from 'viem'
 import { usePlayerStats, type PlayerStats } from '../hooks/usePlayerStats'
 import { useGameHistory } from '../hooks/useGameHistory'
+import { usePlayerNames } from '../hooks/usePlayerNames'
 
 interface RankingsProps {
   onBack: () => void
@@ -17,6 +19,12 @@ export function Rankings({ onBack, onReplay }: RankingsProps) {
   const { stats, loading, error } = usePlayerStats(10000)
   const { games: finishedGames, loading: gamesLoading } = useGameHistory(10000)
   const [sortBy, setSortBy] = useState<SortKey>('gamesWon')
+
+  const allAddresses = useMemo(
+    () => stats.map((s) => s.address as Address),
+    [stats]
+  )
+  const names = usePlayerNames(allAddresses)
 
   const sorted = [...stats].sort((a, b) => {
     if (sortBy === 'totalEarnings') {
@@ -106,7 +114,7 @@ export function Rankings({ onBack, onReplay }: RankingsProps) {
 
                 {/* Rows */}
                 {sorted.map((player, i) => (
-                  <PlayerRow key={player.address} player={player} rank={i + 1} />
+                  <PlayerRow key={player.address} player={player} rank={i + 1} name={names[player.address.toLowerCase()] ?? ''} />
                 ))}
               </div>
             )}
@@ -171,7 +179,7 @@ export function Rankings({ onBack, onReplay }: RankingsProps) {
   )
 }
 
-function PlayerRow({ player, rank }: { player: PlayerStats; rank: number }) {
+function PlayerRow({ player, rank, name }: { player: PlayerStats; rank: number; name: string }) {
   const isTop3 = rank <= 3
   const rankColors = ['text-gold', 'text-white/50', 'text-blood/60']
 
@@ -186,11 +194,16 @@ function PlayerRow({ player, rank }: { player: PlayerStats; rank: number }) {
         {rank}
       </div>
 
-      {/* Address */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-mono text-white/50">
-          {shortAddr(player.address)}
-        </span>
+      {/* Name + Address */}
+      <div className="flex items-center gap-2 min-w-0">
+        {name ? (
+          <>
+            <span className="text-[11px] font-display text-white/70 truncate">{name}</span>
+            <span className="text-[9px] font-mono text-white/20">{shortAddr(player.address)}</span>
+          </>
+        ) : (
+          <span className="text-[10px] font-mono text-white/50">{shortAddr(player.address)}</span>
+        )}
       </div>
 
       {/* Wins */}

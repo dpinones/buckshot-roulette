@@ -3,6 +3,7 @@ import { type Address } from 'viem'
 import { type GameState } from '../hooks/useGameState'
 import { type GameEvent } from '../hooks/useEventLog'
 import { Phase } from '../config/contracts'
+import { usePlayerNames } from '../hooks/usePlayerNames'
 import { PlayerCard } from './PlayerCard'
 import { ShellIndicator } from './ShellIndicator'
 import { ShotgunVisual } from './ShotgunVisual'
@@ -24,13 +25,15 @@ function maxHpForRound(round: number): number {
   return 5
 }
 
-function playerLabel(index: number): string {
-  return `P${index + 1}`
-}
-
 export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) {
   const [selectedPlayer, setSelectedPlayer] = useState<{ address: Address; label: string } | null>(null)
   const players = state.players
+  const names = usePlayerNames(players)
+
+  function getLabel(index: number): string {
+    const name = names[players[index]?.toLowerCase()]
+    return name || `P${index + 1}`
+  }
   const maxHp = maxHpForRound(state.currentRound)
   const isFinished = state.phase === Phase.FINISHED
   const aliveCount = state.alive.filter(Boolean).length
@@ -98,8 +101,8 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
                 items={state.playerItems[player.toLowerCase()] ?? []}
                 isCurrentTurn={state.currentTurn?.toLowerCase() === player.toLowerCase()}
                 isAlive={state.alive[i] ?? false}
-                label={playerLabel(i)}
-                onClick={() => setSelectedPlayer({ address: player, label: playerLabel(i) })}
+                label={getLabel(i)}
+                onClick={() => setSelectedPlayer({ address: player, label: getLabel(i) })}
               />
             ))}
           </div>
@@ -129,15 +132,12 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
         <GameOverScreen
           winner={state.winner}
           label={
-            players.findIndex(
-              (p) => p.toLowerCase() === state.winner.toLowerCase()
-            ) >= 0
-              ? playerLabel(
-                  players.findIndex(
-                    (p) => p.toLowerCase() === state.winner.toLowerCase()
-                  )
-                )
-              : '???'
+            (() => {
+              const idx = players.findIndex(
+                (p) => p.toLowerCase() === state.winner.toLowerCase()
+              )
+              return idx >= 0 ? getLabel(idx) : '???'
+            })()
           }
           prize={state.prizePoolFormatted}
           onHome={onBack}

@@ -198,7 +198,7 @@ cast_call_profile() {
 
 # Create profiles
 echo "  P1 creating profile..."
-PROF1=$(cast_send_profile "$PK1" "createProfile()")
+PROF1=$(cast_send_profile "$PK1" "createProfile(string)" "Player1")
 if ! tx_succeeded "$PROF1"; then
   echo "ERROR: P1 no pudo crear perfil"
   echo "$PROF1"
@@ -206,7 +206,7 @@ if ! tx_succeeded "$PROF1"; then
 fi
 
 echo "  P2 creating profile..."
-PROF2=$(cast_send_profile "$PK2" "createProfile()")
+PROF2=$(cast_send_profile "$PK2" "createProfile(string)" "Player2")
 if ! tx_succeeded "$PROF2"; then
   echo "ERROR: P2 no pudo crear perfil"
   echo "$PROF2"

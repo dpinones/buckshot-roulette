@@ -174,7 +174,7 @@ export const buckshotGameAbi = [
 export const playerProfileAbi = [
   {
     type: 'function', name: 'createProfile',
-    inputs: [], outputs: [], stateMutability: 'nonpayable',
+    inputs: [{ name: '_name', type: 'string' }], outputs: [], stateMutability: 'nonpayable',
   },
   {
     type: 'function', name: 'hasProfile',

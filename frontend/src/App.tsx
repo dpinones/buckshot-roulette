@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useGameState } from './hooks/useGameState'
 import { useEventLog } from './hooks/useEventLog'
+import { usePlayerNames } from './hooks/usePlayerNames'
 import { Phase } from './config/contracts'
 import { GameBoard } from './components/GameBoard'
 import { WaitingScreen } from './components/WaitingScreen'
@@ -16,7 +17,8 @@ function GameView({
   onBack: () => void
 }) {
   const { state, prevState, error, connected } = useGameState(gameId, 2000)
-  const events = useEventLog(state, prevState)
+  const names = usePlayerNames(state?.players ?? [])
+  const events = useEventLog(state, prevState, names)
 
   if (!state || state.phase === Phase.WAITING) {
     return <WaitingScreen connected={connected} error={error} />
