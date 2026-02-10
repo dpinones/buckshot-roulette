@@ -4,29 +4,84 @@
   --color-blood: #dc2626;
   --color-blood-dark: #991b1b;
   --color-shell-live: #ef4444;
-  --color-shell-blank: #6b7280;
-  --color-gold: #f59e0b;
+  --color-shell-blank: #4a5568;
+  --color-gold: #f5a623;
   --color-neon: #22d3ee;
-  --color-surface: #1a1a2e;
-  --color-surface-light: #16213e;
-  --color-surface-lighter: #0f3460;
+  --color-alive: #10b981;
+  --color-surface: #0e0e18;
+  --color-surface-light: #151522;
+  --color-surface-lighter: #1c1c2e;
+  --color-panel: #111119;
 }
 
 body {
   margin: 0;
-  background: #0a0a1a;
-  color: #e2e8f0;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  background: #060609;
+  color: #d4d4dc;
+  font-family: 'JetBrains Mono', monospace;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
+/* Scanlines overlay */
+.scanlines::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.04) 2px,
+    rgba(0, 0, 0, 0.04) 4px
+  );
 }
-::-webkit-scrollbar-track {
-  background: #1a1a2e;
+
+/* Display font class */
+.font-display {
+  font-family: 'Oswald', sans-serif;
 }
-::-webkit-scrollbar-thumb {
-  background: #4a5568;
-  border-radius: 3px;
+
+/* Glow pulse for active turn */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(220, 38, 38, 0.25), inset 0 0 20px rgba(220, 38, 38, 0.03); }
+  50% { box-shadow: 0 0 40px rgba(220, 38, 38, 0.45), inset 0 0 30px rgba(220, 38, 38, 0.06); }
 }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes drip {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes terminalBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes muzzleFlash {
+  0% { opacity: 1; transform: scale(0.5); }
+  100% { opacity: 0; transform: scale(2.5); }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3a4a; }

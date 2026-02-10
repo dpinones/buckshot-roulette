@@ -13,53 +13,60 @@ export function GameCard({ game, onClick }: GameCardProps) {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-surface border border-white/5 rounded-lg p-4
-                 hover:border-blood/40 hover:bg-surface-light transition-all duration-200
+      className="w-full text-left bg-panel border border-white/[0.04] rounded-sm p-4
+                 hover:border-blood/30 hover:bg-surface-light transition-all duration-200
                  cursor-pointer group"
     >
-      {/* Header row */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-mono tracking-widest text-white/30">
-          GAME #{game.id.toString()}
+        <span className="text-[10px] font-display tracking-[0.15em] text-white/25 uppercase">
+          Game #{game.id.toString()}
         </span>
-        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blood/20 text-blood">
-          R{game.currentRound}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[8px] font-mono px-1.5 py-0.5 bg-blood/10 text-blood/70 border border-blood/15 rounded-sm">
+            R{game.currentRound}
+          </span>
+        </div>
       </div>
 
-      {/* Players */}
-      <div className="space-y-1.5 mb-3">
+      {/* Players grid */}
+      <div className="space-y-1 mb-3">
         {game.players.map((addr, i) => (
           <div key={addr} className="flex items-center gap-2">
             <div
-              className={`w-1.5 h-1.5 rounded-full ${
-                game.alive[i] ? 'bg-green-500' : 'bg-white/10'
+              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                game.alive[i] ? 'bg-alive' : 'bg-white/[0.06]'
               }`}
             />
-            <span
-              className={`text-xs font-mono ${
-                game.alive[i] ? 'text-white/60' : 'text-white/20 line-through'
-              }`}
-            >
-              P{i + 1} {shortAddr(addr)}
+            <span className={`text-[10px] font-mono truncate ${
+              game.alive[i] ? 'text-white/50' : 'text-white/15 line-through'
+            }`}>
+              P{i + 1}
+            </span>
+            <span className={`text-[9px] font-mono truncate ${
+              game.alive[i] ? 'text-white/25' : 'text-white/10 line-through'
+            }`}>
+              {shortAddr(addr)}
             </span>
           </div>
         ))}
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-2 border-t border-white/5">
-        <span className="text-[10px] font-mono text-white/25">
-          {game.aliveCount}/{game.players.length} alive
+      <div className="flex items-center justify-between pt-2.5 border-t border-white/[0.04]">
+        <span className="text-[9px] font-mono text-white/15">
+          <span className="text-alive/60">{game.aliveCount}</span>/{game.players.length} alive
         </span>
-        <span className="text-xs font-mono text-gold">
+        <span className="text-[10px] font-mono text-gold/80">
           {game.prizePoolFormatted} ETH
         </span>
       </div>
 
-      {/* Hover hint */}
-      <div className="mt-2 text-[10px] font-mono text-white/0 group-hover:text-white/20 transition-colors text-center">
-        SPECTATE
+      {/* Hover CTA */}
+      <div className="mt-2.5 text-center">
+        <span className="text-[8px] uppercase tracking-[0.3em] text-white/0 group-hover:text-blood/50 transition-colors duration-200 font-display">
+          Spectate
+        </span>
       </div>
     </button>
   )

@@ -4,18 +4,16 @@ interface RoundBannerProps {
 }
 
 export function RoundBanner({ round, maxHp }: RoundBannerProps) {
-  const intensity = round // 1-3 maps to visual intensity
-
   return (
-    <div className="flex items-center gap-4">
-      {/* Round blocks */}
-      <div className="flex gap-1">
+    <div className="flex items-center gap-3">
+      {/* Round segments */}
+      <div className="flex gap-0.5">
         {[1, 2, 3].map((r) => (
           <div
             key={r}
             className={`
-              w-8 h-1 transition-all duration-500
-              ${r <= round ? 'bg-blood' : 'bg-white/10'}
+              w-6 h-1 transition-all duration-500 rounded-full
+              ${r <= round ? 'bg-blood' : 'bg-white/[0.06]'}
               ${r === round ? 'shadow-[0_0_8px_rgba(220,38,38,0.5)]' : ''}
             `}
           />
@@ -23,15 +21,13 @@ export function RoundBanner({ round, maxHp }: RoundBannerProps) {
       </div>
 
       <div className="flex items-baseline gap-2">
-        <span
-          className={`
-            text-sm font-mono tracking-wider uppercase
-            ${intensity >= 3 ? 'text-blood' : intensity >= 2 ? 'text-gold' : 'text-white/60'}
-          `}
-        >
+        <span className={`
+          text-xs font-display tracking-wider uppercase font-semibold
+          ${round >= 3 ? 'text-blood' : round >= 2 ? 'text-gold' : 'text-white/50'}
+        `}>
           Round {round}
         </span>
-        <span className="text-[10px] text-white/20">
+        <span className="text-[9px] text-white/15 font-mono">
           HP:{maxHp}
         </span>
       </div>
