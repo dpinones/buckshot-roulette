@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { type Address, parseEther, formatEther } from 'viem'
 import { useAccount } from 'wagmi'
 import { type GameState } from '../hooks/useGameState'
 import { useBetting } from '../hooks/useBetting'
 import { usePlayerNames } from '../hooks/usePlayerNames'
+import { getCharacter } from '../config/characters'
 
 interface BettingPanelProps {
   gameId: bigint
@@ -23,7 +24,7 @@ function CountdownTimer({ timeLeft }: { timeLeft: number }) {
   const isUrgent = timeLeft < 10
 
   return (
-    <div className={`font-mono text-4xl font-bold tracking-wider ${
+    <div className={`font-display text-5xl tracking-wider ${
       isUrgent ? 'text-blood animate-pulse' : 'text-gold'
     }`}>
       {minutes}:{seconds.toString().padStart(2, '0')}
@@ -43,10 +44,25 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
   const [betYes, setBetYes] = useState(true)
 
   const players = state.players
+  const autoActivatedRef = useRef(false)
+
+  // Auto-activate game when betting window closes (local dev convenience)
+  useEffect(() => {
+    if (betting.timeLeft === 0 && wallet && !betting.isActivating && !autoActivatedRef.current) {
+      autoActivatedRef.current = true
+      betting.activateGame()
+    }
+    if (betting.timeLeft > 0) {
+      autoActivatedRef.current = false
+    }
+  }, [betting.timeLeft, wallet, betting.isActivating, betting.activateGame])
+
+  function getOnChainName(addr: Address): string {
+    return names[addr.toLowerCase()] || ''
+  }
 
   function getLabel(addr: Address): string {
-    const name = names[addr.toLowerCase()]
-    return name || shortAddr(addr)
+    return getCharacter(getOnChainName(addr)).name
   }
 
   function handlePlaceBet() {
@@ -67,34 +83,32 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
   const myBetsTotal = betting.state?.myBets?.amounts?.reduce((sum, a) => sum + a, 0n) ?? 0n
 
   return (
-    <div className="min-h-screen bg-[#060609] flex flex-col scanlines">
+    <div className="min-h-screen bg-meadow flex flex-col">
       {/* Header */}
-      <header className="border-b border-white/[0.04] px-6 py-3">
+      <header className="border-b-3 border-paper-shadow/40 px-6 py-3">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-5">
             {onBack && (
               <button
                 onClick={onBack}
-                className="text-[9px] font-mono text-white/25 hover:text-white/50 transition-colors
-                           border border-white/[0.06] hover:border-white/[0.12] px-2.5 py-1
-                           cursor-pointer rounded-sm"
+                className="font-display text-[11px] text-text-dark px-3 py-1.5 bg-paper border-2 border-text-dark/20 hover:border-gold rounded-[10px] shadow-[2px_2px_0_var(--color-paper-shadow)] cursor-pointer transition-colors hover:bg-[#FFF3D0]"
               >
                 LOBBY
               </button>
             )}
-            <h1 className="font-display text-lg font-bold tracking-[0.12em] text-white/85">
-              BUCKSHOT<span className="text-blood">_</span>ROULETTE
+            <h1 className="font-display text-lg text-text-dark">
+              Buckshot Roulette
             </h1>
-            <span className="text-[9px] font-mono px-2 py-0.5 bg-gold/10 text-gold/80 border border-gold/20 rounded-sm uppercase tracking-wider">
+            <span className="font-display text-[10px] px-2.5 py-1 bg-gold/20 text-text-dark border-2 border-gold/40 rounded-lg">
               Betting
             </span>
           </div>
 
           <div className="text-right">
-            <div className="text-[8px] uppercase tracking-[0.3em] text-white/15">
+            <div className="font-data text-[10px] text-text-light">
               Game #{gameId.toString()}
             </div>
-            <div className="text-xs font-mono text-gold">
+            <div className="font-display text-sm text-gold">
               {state.prizePoolFormatted} ETH
             </div>
           </div>
@@ -105,22 +119,20 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
         <div className="max-w-5xl mx-auto space-y-8">
           {/* Countdown */}
           <div className="text-center space-y-2">
-            <div className="text-[9px] uppercase tracking-[0.4em] text-white/20 font-display">
+            <div className="font-display text-sm text-text-light">
               Betting closes in
             </div>
             <CountdownTimer timeLeft={betting.timeLeft} />
             {betting.timeLeft === 0 && (
               <div className="space-y-2">
-                <div className="text-[10px] font-mono text-white/30">
+                <div className="font-data text-sm text-text-light">
                   Betting window closed
                 </div>
                 {wallet && (
                   <button
                     onClick={betting.activateGame}
                     disabled={betting.isActivating}
-                    className="text-[10px] font-mono uppercase tracking-[0.15em] text-gold/80 hover:text-gold
-                               border border-gold/30 hover:border-gold/60 px-5 py-2
-                               cursor-pointer rounded-sm transition-colors disabled:opacity-30"
+                    className="font-display text-sm text-text-dark px-5 py-2 bg-gold/30 border-2 border-gold hover:bg-gold/50 rounded-[10px] cursor-pointer transition-colors disabled:opacity-30"
                   >
                     {betting.isActivating ? 'Activating...' : 'Start Game'}
                   </button>
@@ -131,14 +143,19 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
 
           {/* Players list */}
           <div className="flex justify-center gap-4">
-            {players.map((player, i) => (
-              <div key={player} className="text-center space-y-1">
-                <div className="w-10 h-10 rounded-full bg-panel border border-white/[0.06] flex items-center justify-center mx-auto">
-                  <span className="text-xs font-display text-white/50">P{i + 1}</span>
+            {players.map((player, i) => {
+              const char = getCharacter(getOnChainName(player))
+              return (
+                <div key={player} className="text-center space-y-1">
+                  <img
+                    src={char.img}
+                    alt={char.name}
+                    className="w-14 h-14 rounded-[10px] object-contain bg-white/50 p-1 mx-auto border-2 border-alive/40"
+                  />
+                  <div className="font-data text-[10px] text-text-dark">{getLabel(player)}</div>
                 </div>
-                <div className="text-[9px] font-mono text-white/40">{getLabel(player)}</div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {/* Bet Type Tabs */}
@@ -147,11 +164,11 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); setSelectedPlayer(null) }}
-                className={`text-[9px] font-mono uppercase tracking-[0.15em] px-4 py-2 rounded-sm transition-colors cursor-pointer
-                  ${activeTab === tab
-                    ? 'bg-gold/10 text-gold border border-gold/30'
-                    : 'text-white/25 border border-white/[0.04] hover:border-white/[0.1] hover:text-white/40'
-                  }`}
+                className={`font-display text-[11px] px-4 py-2 rounded-[10px] transition-colors cursor-pointer border-2 ${
+                  activeTab === tab
+                    ? 'bg-gold/20 text-text-dark border-gold shadow-[2px_2px_0_var(--color-paper-shadow)]'
+                    : 'text-text-light border-paper-shadow/40 hover:border-gold/40 hover:text-text-dark'
+                }`}
               >
                 {tab === 'winner' ? 'Winner' : tab === 'first_death' ? 'First Death' : 'Over/Under Kills'}
               </button>
@@ -159,47 +176,53 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
           </div>
 
           {/* Bet Form */}
-          <div className="bg-panel border border-white/[0.04] rounded-sm p-6 space-y-5">
+          <div className="bg-paper border-3 border-paper-shadow/40 rounded-[14px] p-6 space-y-5 shadow-[3px_3px_0_var(--color-paper-shadow)]">
             {/* Tab-specific content */}
             {activeTab === 'winner' && (
               <div className="space-y-3">
-                <div className="text-[9px] uppercase tracking-[0.3em] text-white/20 font-display">
+                <div className="font-display text-sm text-text-dark">
                   Who will win?
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {players.map((player, i) => (
-                    <button
-                      key={player}
-                      onClick={() => setSelectedPlayer(player)}
-                      className={`text-left p-3 rounded-sm border transition-colors cursor-pointer ${
-                        selectedPlayer === player
-                          ? 'bg-gold/10 border-gold/30 text-gold'
-                          : 'border-white/[0.04] text-white/40 hover:border-white/[0.1]'
-                      }`}
-                    >
-                      <div className="text-xs font-display font-bold">P{i + 1}</div>
-                      <div className="text-[8px] font-mono text-inherit/60">{getLabel(player)}</div>
-                    </button>
-                  ))}
+                  {players.map((player, i) => {
+                    const char = getCharacter(getOnChainName(player))
+                    return (
+                      <button
+                        key={player}
+                        onClick={() => setSelectedPlayer(player)}
+                        className={`text-left p-3 rounded-[10px] border-2 transition-colors cursor-pointer flex items-center gap-2 ${
+                          selectedPlayer === player
+                            ? 'bg-gold/15 border-gold shadow-[2px_2px_0_var(--color-paper-shadow)]'
+                            : 'border-paper-shadow/40 hover:border-gold/40'
+                        }`}
+                      >
+                        <img src={char.img} alt="" className="w-8 h-8 rounded-md object-contain" />
+                        <div>
+                          <div className="font-display text-sm text-text-dark">{getLabel(player)}</div>
+                          <div className="font-data text-[10px] text-text-light">{char.role}</div>
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
 
             {activeTab === 'first_death' && (
               <div className="space-y-4">
-                <div className="text-[9px] uppercase tracking-[0.3em] text-white/20 font-display">
+                <div className="font-display text-sm text-text-dark">
                   Who dies at position?
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-[9px] font-mono text-white/30">Death #</span>
+                  <span className="font-data text-sm text-text-light">Death #</span>
                   {[1, 2, 3].map((pos) => (
                     <button
                       key={pos}
                       onClick={() => setSelectedPosition(pos)}
-                      className={`text-xs font-mono px-3 py-1 rounded-sm border transition-colors cursor-pointer ${
+                      className={`font-data text-sm px-3 py-1 rounded-[8px] border-2 transition-colors cursor-pointer ${
                         selectedPosition === pos
-                          ? 'bg-blood/10 border-blood/30 text-blood'
-                          : 'border-white/[0.04] text-white/30 hover:border-white/[0.1]'
+                          ? 'bg-blood/10 border-blood text-blood'
+                          : 'border-paper-shadow/40 text-text-light hover:border-blood/40'
                       }`}
                     >
                       {pos}
@@ -207,56 +230,68 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
                   ))}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {players.map((player, i) => (
-                    <button
-                      key={player}
-                      onClick={() => setSelectedPlayer(player)}
-                      className={`text-left p-3 rounded-sm border transition-colors cursor-pointer ${
-                        selectedPlayer === player
-                          ? 'bg-blood/10 border-blood/30 text-blood'
-                          : 'border-white/[0.04] text-white/40 hover:border-white/[0.1]'
-                      }`}
-                    >
-                      <div className="text-xs font-display font-bold">P{i + 1}</div>
-                      <div className="text-[8px] font-mono text-inherit/60">{getLabel(player)}</div>
-                    </button>
-                  ))}
+                  {players.map((player, i) => {
+                    const char = getCharacter(getOnChainName(player))
+                    return (
+                      <button
+                        key={player}
+                        onClick={() => setSelectedPlayer(player)}
+                        className={`text-left p-3 rounded-[10px] border-2 transition-colors cursor-pointer flex items-center gap-2 ${
+                          selectedPlayer === player
+                            ? 'bg-blood/10 border-blood'
+                            : 'border-paper-shadow/40 hover:border-blood/40'
+                        }`}
+                      >
+                        <img src={char.img} alt="" className="w-8 h-8 rounded-md object-contain" />
+                        <div>
+                          <div className="font-display text-sm text-text-dark">{getLabel(player)}</div>
+                          <div className="font-data text-[10px] text-text-light">{char.role}</div>
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
 
             {activeTab === 'over_kills' && (
               <div className="space-y-4">
-                <div className="text-[9px] uppercase tracking-[0.3em] text-white/20 font-display">
+                <div className="font-display text-sm text-text-dark">
                   Will player get X+ kills?
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {players.map((player, i) => (
-                    <button
-                      key={player}
-                      onClick={() => setSelectedPlayer(player)}
-                      className={`text-left p-3 rounded-sm border transition-colors cursor-pointer ${
-                        selectedPlayer === player
-                          ? 'bg-gold/10 border-gold/30 text-gold'
-                          : 'border-white/[0.04] text-white/40 hover:border-white/[0.1]'
-                      }`}
-                    >
-                      <div className="text-xs font-display font-bold">P{i + 1}</div>
-                      <div className="text-[8px] font-mono text-inherit/60">{getLabel(player)}</div>
-                    </button>
-                  ))}
+                  {players.map((player, i) => {
+                    const char = getCharacter(getOnChainName(player))
+                    return (
+                      <button
+                        key={player}
+                        onClick={() => setSelectedPlayer(player)}
+                        className={`text-left p-3 rounded-[10px] border-2 transition-colors cursor-pointer flex items-center gap-2 ${
+                          selectedPlayer === player
+                            ? 'bg-gold/15 border-gold'
+                            : 'border-paper-shadow/40 hover:border-gold/40'
+                        }`}
+                      >
+                        <img src={char.img} alt="" className="w-8 h-8 rounded-md object-contain" />
+                        <div>
+                          <div className="font-display text-sm text-text-dark">{getLabel(player)}</div>
+                          <div className="font-data text-[10px] text-text-light">{char.role}</div>
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-3">
-                    <span className="text-[9px] font-mono text-white/30">Kills {'>='}  </span>
+                    <span className="font-data text-sm text-text-light">Kills {'>='}  </span>
                     {[1, 2, 3].map((t) => (
                       <button
                         key={t}
                         onClick={() => setSelectedThreshold(t)}
-                        className={`text-xs font-mono px-3 py-1 rounded-sm border transition-colors cursor-pointer ${
+                        className={`font-data text-sm px-3 py-1 rounded-[8px] border-2 transition-colors cursor-pointer ${
                           selectedThreshold === t
-                            ? 'bg-gold/10 border-gold/30 text-gold'
-                            : 'border-white/[0.04] text-white/30 hover:border-white/[0.1]'
+                            ? 'bg-gold/15 border-gold text-text-dark'
+                            : 'border-paper-shadow/40 text-text-light hover:border-gold/40'
                         }`}
                       >
                         {t}
@@ -266,16 +301,16 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setBetYes(true)}
-                      className={`text-[10px] font-mono px-3 py-1 rounded-sm border transition-colors cursor-pointer ${
-                        betYes ? 'bg-alive/10 border-alive/30 text-alive' : 'border-white/[0.04] text-white/30'
+                      className={`font-display text-sm px-3 py-1 rounded-[8px] border-2 transition-colors cursor-pointer ${
+                        betYes ? 'bg-alive/15 border-alive text-alive' : 'border-paper-shadow/40 text-text-light'
                       }`}
                     >
                       YES
                     </button>
                     <button
                       onClick={() => setBetYes(false)}
-                      className={`text-[10px] font-mono px-3 py-1 rounded-sm border transition-colors cursor-pointer ${
-                        !betYes ? 'bg-blood/10 border-blood/30 text-blood' : 'border-white/[0.04] text-white/30'
+                      className={`font-display text-sm px-3 py-1 rounded-[8px] border-2 transition-colors cursor-pointer ${
+                        !betYes ? 'bg-blood/10 border-blood text-blood' : 'border-paper-shadow/40 text-text-light'
                       }`}
                     >
                       NO
@@ -286,9 +321,9 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
             )}
 
             {/* Amount input + submit */}
-            <div className="flex items-end gap-4 pt-3 border-t border-white/[0.04]">
+            <div className="flex items-end gap-4 pt-3 border-t-2 border-paper-shadow/30">
               <div className="flex-1 space-y-1">
-                <label className="text-[8px] uppercase tracking-[0.3em] text-white/15">
+                <label className="font-display text-[10px] text-text-light">
                   Bet Amount (ETH)
                 </label>
                 <input
@@ -297,16 +332,16 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
                   min="0.001"
                   value={betAmount}
                   onChange={(e) => setBetAmount(e.target.value)}
-                  className="w-full bg-surface-light border border-white/[0.06] rounded-sm px-3 py-2
-                             text-sm font-mono text-white/80 outline-none focus:border-gold/30"
+                  className="w-full bg-meadow border-2 border-paper-shadow/60 rounded-[10px] px-3 py-2
+                             font-data text-sm text-text-dark outline-none focus:border-gold"
                 />
               </div>
               <button
                 onClick={handlePlaceBet}
                 disabled={!canBet || betting.isPending}
-                className="px-6 py-2.5 bg-gold/10 border border-gold/30 text-gold text-[10px] font-mono
-                           uppercase tracking-[0.15em] rounded-sm transition-colors cursor-pointer
-                           hover:bg-gold/20 hover:border-gold/50
+                className="px-6 py-2.5 bg-gold/30 border-2 border-gold text-text-dark font-display text-sm
+                           rounded-[10px] transition-colors cursor-pointer
+                           hover:bg-gold/50 shadow-[2px_2px_0_var(--color-paper-shadow)]
                            disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {betting.isPending ? 'Placing...' : 'Place Bet'}
@@ -314,7 +349,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
             </div>
 
             {!wallet && (
-              <div className="text-[9px] font-mono text-white/20 text-center py-2">
+              <div className="font-data text-sm text-text-light text-center py-2">
                 Connect wallet to place bets
               </div>
             )}
@@ -322,27 +357,27 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
 
           {/* My Bets */}
           {myBetsCount > 0 && (
-            <div className="bg-panel border border-white/[0.04] rounded-sm p-4">
-              <div className="text-[9px] uppercase tracking-[0.3em] text-white/20 font-display mb-3">
+            <div className="bg-paper border-2 border-paper-shadow/40 rounded-[14px] p-4 shadow-[2px_2px_0_var(--color-paper-shadow)]">
+              <div className="font-display text-sm text-text-dark mb-3">
                 My Bets ({myBetsCount})
               </div>
               <div className="space-y-1">
                 {betting.state?.myBets?.amounts.map((amount, i) => (
-                  <div key={i} className="flex items-center justify-between text-[10px] font-mono">
-                    <span className="text-white/30">Bet #{i + 1}</span>
-                    <span className="text-gold/70">{formatEther(amount)} ETH</span>
+                  <div key={i} className="flex items-center justify-between font-data text-sm">
+                    <span className="text-text-light">Bet #{i + 1}</span>
+                    <span className="text-gold font-bold">{formatEther(amount)} ETH</span>
                   </div>
                 ))}
               </div>
-              <div className="mt-2 pt-2 border-t border-white/[0.04] flex justify-between text-[10px] font-mono">
-                <span className="text-white/20">Total</span>
-                <span className="text-gold">{formatEther(myBetsTotal)} ETH</span>
+              <div className="mt-2 pt-2 border-t-2 border-paper-shadow/30 flex justify-between font-data text-sm">
+                <span className="text-text-light">Total</span>
+                <span className="text-gold font-bold">{formatEther(myBetsTotal)} ETH</span>
               </div>
             </div>
           )}
 
           {/* Pool info */}
-          <div className="text-center text-[9px] font-mono text-white/15">
+          <div className="text-center font-data text-[11px] text-text-light">
             Winner pool: {betting.winnerPoolFormatted} ETH
           </div>
         </div>

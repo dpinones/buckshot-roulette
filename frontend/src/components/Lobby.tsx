@@ -16,32 +16,29 @@ function QueueCard({ queue }: { queue: QueueInfo }) {
   const progress = Math.min(queue.playerCount / MIN_PLAYERS, 1)
 
   return (
-    <div className="bg-panel border border-white/[0.04] rounded-sm p-4">
+    <div className="bg-[rgba(200,230,200,0.92)] border-3 border-alive rounded-[14px] p-4 shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
       {/* Buy-in */}
       <div className="text-center mb-3">
-        <div className="text-lg font-display font-bold text-gold">
+        <div className="text-lg font-display text-gold drop-shadow-[1px_1px_0_rgba(0,0,0,0.2)]">
           {queue.buyInFormatted}
         </div>
-        <div className="text-[8px] uppercase tracking-[0.3em] text-white/15">
+        <div className="text-[10px] font-data text-text-light">
           ETH buy-in
         </div>
       </div>
 
       {/* Progress bar */}
       <div className="mb-3">
-        <div className="flex justify-between text-[9px] font-mono text-white/20 mb-1">
+        <div className="flex justify-between font-data text-[10px] text-text-light mb-1">
           <span>{queue.playerCount} queued</span>
           <span>{MIN_PLAYERS} to start</span>
         </div>
-        <div className="h-1 bg-white/[0.04] rounded-full overflow-hidden">
+        <div className="h-1.5 bg-paper-shadow/40 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{
               width: `${progress * 100}%`,
-              background:
-                progress >= 1
-                  ? '#10b981'
-                  : 'linear-gradient(90deg, #dc2626, #f5a623)',
+              background: progress >= 1 ? 'var(--color-alive)' : 'linear-gradient(90deg, var(--color-gold), var(--color-agro))',
             }}
           />
         </div>
@@ -53,15 +50,15 @@ function QueueCard({ queue }: { queue: QueueInfo }) {
           {queue.players.map((addr) => (
             <div
               key={addr}
-              className="text-[9px] font-mono text-white/20 flex items-center gap-1.5"
+              className="font-data text-[10px] text-text-light flex items-center gap-1.5"
             >
-              <div className="w-1 h-1 rounded-full bg-alive/40" />
+              <div className="w-1.5 h-1.5 rounded-full bg-alive" />
               {shortAddr(addr)}
             </div>
           ))}
         </div>
       ) : (
-        <div className="text-[9px] font-mono text-white/10 text-center">
+        <div className="font-data text-[10px] text-text-light/60 text-center">
           Empty
         </div>
       )}
@@ -73,13 +70,13 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
   const { queues, games, connected, error } = useLobbyState(3000)
 
   return (
-    <div className="min-h-screen bg-[#060609] flex flex-col scanlines">
+    <div className="min-h-screen bg-meadow flex flex-col">
       {/* Header */}
-      <header className="border-b border-white/[0.04] px-6 py-5">
+      <header className="border-b-3 border-paper-shadow/40 px-6 py-5">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="font-display text-2xl font-bold tracking-[0.12em] text-white/85">
-              BUCKSHOT<span className="text-blood">_</span>ROULETTE
+            <h1 className="font-display text-2xl text-text-dark">
+              Buckshot Roulette
             </h1>
           </div>
 
@@ -87,20 +84,18 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
             {onOpenRankings && (
               <button
                 onClick={onOpenRankings}
-                className="text-[9px] font-mono text-white/25 hover:text-gold/60 transition-colors
-                           border border-white/[0.06] hover:border-gold/20 px-2.5 py-1
-                           cursor-pointer rounded-sm"
+                className="font-display text-[11px] text-text-dark px-3 py-1.5 bg-paper border-2 border-text-dark/20 hover:border-gold rounded-[10px] shadow-[2px_2px_0_var(--color-paper-shadow)] cursor-pointer transition-colors hover:bg-[#FFF3D0]"
               >
                 RANKINGS
               </button>
             )}
             <div className="flex items-center gap-2">
               <div
-                className={`w-1.5 h-1.5 rounded-full ${
+                className={`w-2 h-2 rounded-full ${
                   connected ? 'bg-alive' : 'bg-blood animate-pulse'
                 }`}
               />
-              <span className="text-[9px] font-mono text-white/20">
+              <span className="font-data text-[11px] text-text-light">
                 {connected ? 'Connected' : 'Connecting...'}
               </span>
             </div>
@@ -112,22 +107,22 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
       <main className="flex-1 px-6 py-8">
         <div className="max-w-6xl mx-auto space-y-10">
           {error && (
-            <div className="text-[10px] font-mono text-blood/50 text-center py-2">
+            <div className="font-data text-sm text-blood text-center py-2">
               {error}
             </div>
           )}
 
-          {/* Active Games — main focus */}
+          {/* Active Games */}
           <section>
             <div className="flex items-center gap-3 mb-5">
-              <h2 className="text-sm font-display uppercase tracking-[0.2em] text-white/30 font-semibold">
+              <h2 className="font-display text-lg text-text-dark">
                 Active Games
               </h2>
-              <div className="flex-1 h-px bg-white/[0.04]" />
+              <div className="flex-1 h-0.5 bg-paper-shadow/40" />
               {games.length > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blood animate-pulse" />
-                  <span className="text-[9px] font-mono text-blood/70">
+                  <div className="w-2 h-2 rounded-full bg-alive animate-pulse" />
+                  <span className="font-data text-[11px] text-alive font-bold">
                     {games.length} live
                   </span>
                 </div>
@@ -146,18 +141,16 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
               </div>
             ) : (
               <div className="text-center py-16 space-y-4">
-                <pre className="text-white/[0.06] text-[9px] leading-tight select-none">
-{`     ____________________________________
-    /                                    \\
-===|  =====================================>
-    \\____________________________________/
-         ||    ||    ||`}
-                </pre>
-                <div className="text-[10px] font-mono text-white/10">
+                <img
+                  src="/characters/shotgun.png"
+                  alt="shotgun"
+                  className="mx-auto w-48 opacity-30 -rotate-[5deg]"
+                />
+                <div className="font-data text-sm text-text-light">
                   No active games
                 </div>
-                <div className="text-[9px] font-mono text-white/[0.06]">
-                  Run <code className="text-neon/20">make play-spectate</code> to start a game
+                <div className="font-data text-xs text-text-light/60">
+                  Run <code className="text-text-dark bg-paper px-1.5 py-0.5 rounded border border-paper-shadow">make play-spectate</code> to start a game
                 </div>
               </div>
             )}
@@ -166,10 +159,10 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
           {/* Queues Section */}
           <section>
             <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-sm font-display uppercase tracking-[0.2em] text-white/20 font-semibold">
+              <h2 className="font-display text-lg text-text-dark">
                 Waiting Queues
               </h2>
-              <div className="flex-1 h-px bg-white/[0.04]" />
+              <div className="flex-1 h-0.5 bg-paper-shadow/40" />
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -177,7 +170,7 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
                 <QueueCard key={queue.buyIn.toString()} queue={queue} />
               ))}
               {queues.length === 0 && connected && (
-                <div className="col-span-full text-center text-[10px] font-mono text-white/10 py-8">
+                <div className="col-span-full text-center font-data text-sm text-text-light/60 py-8">
                   No queues available
                 </div>
               )}

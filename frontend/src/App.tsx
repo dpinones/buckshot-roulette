@@ -75,7 +75,7 @@ function App() {
 
   return (
     <div className="relative min-h-screen">
-      <div className="fixed top-5 right-56 z-50">
+      <div className="fixed top-3 right-4 z-[150]">
         {isLocal ? <BurnerWallets /> : <ConnectButton accountStatus="address" chainStatus="icon" showBalance={false} />}
       </div>
       {content}

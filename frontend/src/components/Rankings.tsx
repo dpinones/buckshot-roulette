@@ -3,6 +3,7 @@ import { type Address } from 'viem'
 import { usePlayerStats, type PlayerStats } from '../hooks/usePlayerStats'
 import { useGameHistory } from '../hooks/useGameHistory'
 import { usePlayerNames } from '../hooks/usePlayerNames'
+import { getCharacter } from '../config/characters'
 
 interface RankingsProps {
   onBack: () => void
@@ -46,21 +47,19 @@ export function Rankings({ onBack, onReplay }: RankingsProps) {
   ]
 
   return (
-    <div className="min-h-screen bg-[#060609] flex flex-col scanlines">
+    <div className="min-h-screen bg-meadow flex flex-col">
       {/* Header */}
-      <header className="border-b border-white/[0.04] px-6 py-3">
+      <header className="border-b-3 border-paper-shadow/40 px-6 py-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-5">
             <button
               onClick={onBack}
-              className="text-[9px] font-mono text-white/25 hover:text-white/50 transition-colors
-                         border border-white/[0.06] hover:border-white/[0.12] px-2.5 py-1
-                         cursor-pointer rounded-sm"
+              className="font-display text-[11px] text-text-dark px-3 py-1.5 bg-paper border-2 border-text-dark/20 hover:border-gold rounded-[10px] shadow-[2px_2px_0_var(--color-paper-shadow)] cursor-pointer transition-colors hover:bg-[#FFF3D0]"
             >
               LOBBY
             </button>
-            <h1 className="font-display text-lg font-bold tracking-[0.12em] text-white/85">
-              BUCKSHOT<span className="text-blood">_</span>ROULETTE
+            <h1 className="font-display text-lg text-text-dark">
+              Buckshot Roulette
             </h1>
           </div>
         </div>
@@ -71,39 +70,42 @@ export function Rankings({ onBack, onReplay }: RankingsProps) {
           {/* Leaderboard */}
           <section>
             <div className="flex items-center gap-3 mb-5">
-              <h2 className="text-sm font-display uppercase tracking-[0.2em] text-white/30 font-semibold">
+              <h2 className="font-display text-lg text-text-dark">
                 Agent Leaderboard
               </h2>
-              <div className="flex-1 h-px bg-white/[0.04]" />
-              <span className="text-[9px] font-mono text-white/15">
+              <div className="flex-1 h-0.5 bg-paper-shadow/40" />
+              <span className="font-data text-[11px] text-text-light">
                 {stats.length} agents
               </span>
             </div>
 
             {loading ? (
-              <div className="text-center py-12 text-[10px] text-white/15 font-mono animate-pulse">
+              <div className="text-center py-12 font-data text-text-light animate-pulse">
                 Loading stats...
               </div>
             ) : error ? (
-              <div className="text-center py-12 text-[10px] text-blood/50 font-mono">
+              <div className="text-center py-12 font-data text-blood">
                 {error}
               </div>
             ) : stats.length === 0 ? (
-              <div className="text-center py-12 text-[10px] text-white/10 font-mono">
+              <div className="text-center py-12 font-data text-text-light/60">
                 No games played yet
               </div>
             ) : (
-              <div className="border border-white/[0.04] bg-panel rounded-sm overflow-hidden">
+              <div className="bg-[#FFF9C4] border-2 border-paper-shadow rounded-[4px_12px_12px_4px] shadow-[4px_4px_0_var(--color-paper-shadow)] overflow-hidden relative">
+                {/* Red margin line */}
+                <div className="absolute left-10 top-0 bottom-0 w-0.5 bg-[#E57373] z-[1]" />
+
                 {/* Table header */}
-                <div className="grid grid-cols-[40px_1fr_repeat(6,minmax(60px,80px))] gap-2 px-4 py-2.5 border-b border-white/[0.04] bg-white/[0.01]">
-                  <div className="text-[8px] uppercase tracking-[0.2em] text-white/15">#</div>
-                  <div className="text-[8px] uppercase tracking-[0.2em] text-white/15">Agent</div>
+                <div className="grid grid-cols-[40px_1fr_repeat(6,minmax(60px,80px))] gap-2 px-4 py-2.5 border-b-2 border-paper-shadow/40 bg-[#FFF9C4]">
+                  <div className="font-display text-[10px] text-text-light">#</div>
+                  <div className="font-display text-[10px] text-text-light">Agent</div>
                   {columns.map((col) => (
                     <button
                       key={col.key}
                       onClick={() => setSortBy(col.key)}
-                      className={`text-[8px] uppercase tracking-[0.2em] text-right cursor-pointer transition-colors ${
-                        sortBy === col.key ? 'text-blood' : 'text-white/15 hover:text-white/30'
+                      className={`font-display text-[10px] text-right cursor-pointer transition-colors ${
+                        sortBy === col.key ? 'text-blood' : 'text-text-light hover:text-text-dark'
                       }`}
                     >
                       {col.short}
@@ -123,21 +125,21 @@ export function Rankings({ onBack, onReplay }: RankingsProps) {
           {/* Recent Games */}
           <section>
             <div className="flex items-center gap-3 mb-5">
-              <h2 className="text-sm font-display uppercase tracking-[0.2em] text-white/30 font-semibold">
+              <h2 className="font-display text-lg text-text-dark">
                 Recent Games
               </h2>
-              <div className="flex-1 h-px bg-white/[0.04]" />
-              <span className="text-[9px] font-mono text-white/15">
+              <div className="flex-1 h-0.5 bg-paper-shadow/40" />
+              <span className="font-data text-[11px] text-text-light">
                 {finishedGames.length} finished
               </span>
             </div>
 
             {gamesLoading ? (
-              <div className="text-center py-8 text-[10px] text-white/15 font-mono animate-pulse">
+              <div className="text-center py-8 font-data text-text-light animate-pulse">
                 Loading...
               </div>
             ) : finishedGames.length === 0 ? (
-              <div className="text-center py-8 text-[10px] text-white/10 font-mono">
+              <div className="text-center py-8 font-data text-text-light/60">
                 No finished games
               </div>
             ) : (
@@ -146,26 +148,27 @@ export function Rankings({ onBack, onReplay }: RankingsProps) {
                   <button
                     key={game.id.toString()}
                     onClick={() => onReplay?.(game.id)}
-                    className="w-full text-left border border-white/[0.04] bg-panel rounded-sm px-4 py-3 flex items-center gap-4
-                               hover:border-blood/20 hover:bg-surface-light transition-all duration-200 cursor-pointer group"
+                    className="w-full text-left bg-paper border-2 border-paper-shadow/40 rounded-[12px] px-4 py-3 flex items-center gap-4
+                               hover:border-gold hover:shadow-[0_0_10px_rgba(255,215,0,0.15)] transition-all duration-200 cursor-pointer group
+                               shadow-[2px_2px_0_var(--color-paper-shadow)]"
                   >
-                    <span className="text-[10px] font-display tracking-[0.15em] text-white/20 w-20">
-                      GAME #{game.id.toString()}
+                    <span className="font-display text-sm text-text-dark w-24">
+                      Game #{game.id.toString()}
                     </span>
-                    <span className="text-[9px] font-mono text-white/15">
+                    <span className="font-data text-[11px] text-text-light">
                       {game.playerCount} players
                     </span>
                     <div className="flex-1" />
-                    <span className="text-[9px] font-mono text-white/20">
+                    <span className="font-data text-[11px] text-text-light">
                       Winner:
                     </span>
-                    <span className="text-[10px] font-mono text-gold/80">
+                    <span className="font-data text-[11px] text-gold font-bold">
                       {shortAddr(game.winner)}
                     </span>
-                    <span className="text-[10px] font-mono text-gold">
+                    <span className="font-display text-sm text-gold">
                       {game.prizeFormatted} ETH
                     </span>
-                    <span className="text-[8px] uppercase tracking-[0.2em] text-white/0 group-hover:text-blood/50 transition-colors font-display ml-2">
+                    <span className="font-display text-[10px] text-transparent group-hover:text-gold transition-colors ml-2">
                       REPLAY
                     </span>
                   </button>
@@ -181,60 +184,67 @@ export function Rankings({ onBack, onReplay }: RankingsProps) {
 
 function PlayerRow({ player, rank, name }: { player: PlayerStats; rank: number; name: string }) {
   const isTop3 = rank <= 3
-  const rankColors = ['text-gold', 'text-white/50', 'text-blood/60']
+  const rankColors = ['text-gold', 'text-text-light', 'text-agro']
+  const char = getCharacter(name)
 
   return (
     <div className={`
       grid grid-cols-[40px_1fr_repeat(6,minmax(60px,80px))] gap-2 px-4 py-2.5
-      border-b border-white/[0.02] hover:bg-white/[0.015] transition-colors
-      ${rank === 1 ? 'bg-gold/[0.02]' : ''}
-    `}>
+      border-b border-paper-shadow/20 hover:bg-white/30 transition-colors
+      ${rank === 1 ? 'bg-gold/10' : ''}
+    `}
+      style={{
+        background: rank <= 3 ? undefined : undefined,
+        backgroundImage: 'repeating-linear-gradient(transparent, transparent 19px, #E8D9A0 19px, #E8D9A0 20px)',
+      }}
+    >
       {/* Rank */}
-      <div className={`text-[11px] font-display font-bold ${isTop3 ? rankColors[rank - 1] : 'text-white/15'}`}>
+      <div className={`font-display text-sm font-bold ${isTop3 ? rankColors[rank - 1] : 'text-text-light/50'}`}>
         {rank}
       </div>
 
       {/* Name + Address */}
       <div className="flex items-center gap-2 min-w-0">
+        <img src={char.img} alt="" className="w-6 h-6 rounded-md object-contain" />
         {name ? (
           <>
-            <span className="text-[11px] font-display text-white/70 truncate">{name}</span>
-            <span className="text-[9px] font-mono text-white/20">{shortAddr(player.address)}</span>
+            <span className="font-display text-sm text-text-dark truncate">{char.name}</span>
+            <span className="font-data text-[10px] text-text-light">{shortAddr(player.address)}</span>
           </>
         ) : (
-          <span className="text-[10px] font-mono text-white/50">{shortAddr(player.address)}</span>
+          <span className="font-data text-[11px] text-text-dark">{shortAddr(player.address)}</span>
         )}
       </div>
 
       {/* Wins */}
-      <div className="text-[10px] font-mono text-right text-white/60 tabular-nums">
+      <div className="font-data text-[11px] text-right text-text-dark tabular-nums">
         {player.gamesWon}
       </div>
 
       {/* Games */}
-      <div className="text-[10px] font-mono text-right text-white/30 tabular-nums">
+      <div className="font-data text-[11px] text-right text-text-light tabular-nums">
         {player.gamesPlayed}
       </div>
 
       {/* Win % */}
-      <div className={`text-[10px] font-mono text-right tabular-nums ${
-        player.winRate >= 50 ? 'text-alive/70' : 'text-white/25'
+      <div className={`font-data text-[11px] text-right tabular-nums ${
+        player.winRate >= 50 ? 'text-alive font-bold' : 'text-text-light'
       }`}>
         {player.winRate}%
       </div>
 
       {/* Kills */}
-      <div className="text-[10px] font-mono text-right text-blood/60 tabular-nums">
+      <div className="font-data text-[11px] text-right text-blood tabular-nums">
         {player.kills}
       </div>
 
       {/* K/D */}
-      <div className="text-[10px] font-mono text-right text-white/30 tabular-nums">
+      <div className="font-data text-[11px] text-right text-text-light tabular-nums">
         {player.kd}
       </div>
 
       {/* Earnings */}
-      <div className="text-[10px] font-mono text-right text-gold/80 tabular-nums">
+      <div className="font-data text-[11px] text-right text-gold font-bold tabular-nums">
         {player.totalEarningsFormatted}
       </div>
     </div>

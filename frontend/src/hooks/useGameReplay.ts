@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { type Address, formatEther } from 'viem'
-import { ADDRESSES, buckshotGameEventAbi, ITEM_NAMES } from '../config/contracts'
+import { ADDRESSES, buckshotGameEventAbi, ITEM_NAMES, playerProfileAbi } from '../config/contracts'
 import { client } from './useGameState'
+import { getCharacter } from '../config/characters'
 
 export interface ReplayEvent {
   id: number
@@ -25,9 +26,11 @@ export interface ReplayState {
   prize: string
 }
 
-function label(addr: Address, players: Address[]): string {
+function label(addr: Address, players: Address[], nameMap: Record<string, string>): string {
+  const name = nameMap[addr.toLowerCase()]
+  if (name) return getCharacter(name).name
   const idx = players.findIndex((p) => p.toLowerCase() === addr.toLowerCase())
-  return idx >= 0 ? `P${idx + 1}` : `${addr.slice(0, 6)}...${addr.slice(-4)}`
+  return idx >= 0 ? getCharacter('').name : `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
 function maxHpForRound(round: number): number {
@@ -75,6 +78,30 @@ export function useGameReplay(gameId: bigint) {
             if (a.blockNumber !== b.blockNumber) return Number(a.blockNumber! - b.blockNumber!)
             return a.logIndex! - b.logIndex!
           })
+
+        // Fetch player names for character resolution
+        const playerAddrs: Address[] = []
+        for (const log of gameLogs) {
+          if (log.eventName === 'GameCreated' && log.args) {
+            const ps = (log.args as Record<string, unknown>).players as Address[]
+            playerAddrs.push(...ps)
+            break
+          }
+        }
+        const nameMap: Record<string, string> = {}
+        await Promise.all(
+          playerAddrs.map(async (addr) => {
+            try {
+              const n = await client.readContract({
+                address: ADDRESSES.playerProfile,
+                abi: playerProfileAbi,
+                functionName: 'getName',
+                args: [addr],
+              })
+              nameMap[addr.toLowerCase()] = n as string
+            } catch { /* ignore */ }
+          })
+        )
 
         // Build replay events with state reconstruction
         let state: ReplayState = {
@@ -149,7 +176,7 @@ export function useGameReplay(gameId: bigint) {
               replayEvents.push({
                 id: nextId++,
                 type: 'turn',
-                message: `${label(player, state.players)}'s turn SKIPPED (handcuffed)`,
+                message: `${label(player, state.players, nameMap)}'s turn SKIPPED (handcuffed)`,
                 icon: '\u{1F517}',
                 state: cloneState(state),
               })
@@ -157,7 +184,7 @@ export function useGameReplay(gameId: bigint) {
               replayEvents.push({
                 id: nextId++,
                 type: 'turn',
-                message: `${label(player, state.players)}'s turn`,
+                message: `${label(player, state.players, nameMap)}'s turn`,
                 icon: '\u{25B6}',
                 state: cloneState(state),
               })
@@ -188,7 +215,7 @@ export function useGameReplay(gameId: bigint) {
                 replayEvents.push({
                   id: nextId++,
                   type: 'shot',
-                  message: `${label(shooter, state.players)} shot SELF \u2014 BANG!${dmgStr}`,
+                  message: `${label(shooter, state.players, nameMap)} shot SELF \u2014 BANG!${dmgStr}`,
                   icon: '\u{1F4A5}',
                   state: cloneState(state),
                 })
@@ -196,7 +223,7 @@ export function useGameReplay(gameId: bigint) {
                 replayEvents.push({
                   id: nextId++,
                   type: 'shot',
-                  message: `${label(shooter, state.players)} shot ${label(target, state.players)} \u2014 BANG!${dmgStr}`,
+                  message: `${label(shooter, state.players, nameMap)} shot ${label(target, state.players, nameMap)} \u2014 BANG!${dmgStr}`,
                   icon: '\u{1F4A5}',
                   state: cloneState(state),
                 })
@@ -206,7 +233,7 @@ export function useGameReplay(gameId: bigint) {
                 replayEvents.push({
                   id: nextId++,
                   type: 'shot',
-                  message: `${label(shooter, state.players)} shot SELF \u2014 *click* blank (extra turn!)`,
+                  message: `${label(shooter, state.players, nameMap)} shot SELF \u2014 *click* blank (extra turn!)`,
                   icon: '\u{1F389}',
                   state: cloneState(state),
                 })
@@ -214,7 +241,7 @@ export function useGameReplay(gameId: bigint) {
                 replayEvents.push({
                   id: nextId++,
                   type: 'shot',
-                  message: `${label(shooter, state.players)} shot ${label(target, state.players)} \u2014 *click* blank`,
+                  message: `${label(shooter, state.players, nameMap)} shot ${label(target, state.players, nameMap)} \u2014 *click* blank`,
                   icon: '\u{2B55}',
                   state: cloneState(state),
                 })
@@ -238,7 +265,7 @@ export function useGameReplay(gameId: bigint) {
             replayEvents.push({
               id: nextId++,
               type: 'item',
-              message: `${label(player, state.players)} used ${itemName}`,
+              message: `${label(player, state.players, nameMap)} used ${itemName}`,
               icon: '\u{1F9F0}',
               state: cloneState(state),
             })
@@ -263,7 +290,7 @@ export function useGameReplay(gameId: bigint) {
             replayEvents.push({
               id: nextId++,
               type: 'eliminated',
-              message: `${label(player, state.players)} ELIMINATED`,
+              message: `${label(player, state.players, nameMap)} ELIMINATED`,
               icon: '\u{1F480}',
               state: cloneState(state),
             })
@@ -285,7 +312,7 @@ export function useGameReplay(gameId: bigint) {
             replayEvents.push({
               id: nextId++,
               type: 'game_end',
-              message: `GAME OVER! ${label(winner, state.players)} wins! Prize: ${prize} ETH`,
+              message: `GAME OVER! ${label(winner, state.players, nameMap)} wins! Prize: ${prize} ETH`,
               icon: '\u{1F3C6}',
               state: cloneState(state),
             })

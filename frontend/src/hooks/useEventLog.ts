@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { type Address } from 'viem'
 import { type GameState } from './useGameState'
 import { ITEM_NAMES, Phase } from '../config/contracts'
+import { getCharacter } from '../config/characters'
 
 export interface GameEvent {
   id: number
@@ -19,12 +20,12 @@ function playerLabel(
   players: readonly Address[],
   names?: Record<string, string>
 ): string {
-  const name = names?.[addr.toLowerCase()]
-  if (name) return name
+  const name = names?.[addr.toLowerCase()] || ''
   const idx = players.findIndex(
     (p) => p.toLowerCase() === addr.toLowerCase()
   )
-  return idx >= 0 ? `P${idx + 1}` : shortAddr(addr)
+  if (idx >= 0) return getCharacter(name).name
+  return shortAddr(addr)
 }
 
 export function useEventLog(

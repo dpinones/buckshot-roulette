@@ -59,7 +59,6 @@ function useClaimableRewards(address: Address | undefined) {
             args: [i],
           }) as number
 
-          // Only check finished games (phase 2)
           if (phase !== 2) continue
 
           const bets = await publicClient.readContract({
@@ -72,7 +71,6 @@ function useClaimableRewards(address: Address | undefined) {
           const amounts = bets[2]
           const claimed = bets[3]
 
-          // Sum unclaimed amounts
           let unclaimed = 0n
           for (let j = 0; j < amounts.length; j++) {
             if (!claimed[j]) unclaimed += amounts[j]
@@ -134,19 +132,19 @@ export function BurnerWallets() {
   if (address) {
     return (
       <div className="flex items-center gap-3">
-        <span className="text-[9px] font-mono text-white/30">
+        <span className="font-data text-[11px] text-text-light">
           {parseFloat(formatEther(balance)).toFixed(4)} ETH
         </span>
-        <span className="text-[9px] font-mono text-neon/60">
+        <span className="font-data text-[11px] text-text-dark font-bold">
           {shortAddr(address)}
         </span>
         {totalClaimable > 0n && (
           <button
             onClick={claimAll}
             disabled={claiming}
-            className="text-[8px] font-mono uppercase tracking-wider text-gold/80 hover:text-gold
-                       bg-gold/10 border border-gold/30 hover:border-gold/60 px-2 py-0.5
-                       cursor-pointer rounded-sm transition-colors animate-pulse
+            className="font-display text-[9px] text-text-dark
+                       bg-gold/30 border-2 border-gold hover:bg-gold/50 px-2 py-0.5
+                       cursor-pointer rounded-lg transition-colors animate-pulse
                        disabled:opacity-50 disabled:animate-none"
           >
             {claiming ? 'Claiming...' : `Claim ${parseFloat(formatEther(totalClaimable)).toFixed(4)} ETH`}
@@ -154,7 +152,7 @@ export function BurnerWallets() {
         )}
         <button
           onClick={() => disconnect()}
-          className="text-[8px] font-mono text-white/20 hover:text-blood/60 transition-colors cursor-pointer"
+          className="font-data text-[10px] text-text-light hover:text-blood transition-colors cursor-pointer"
         >
           [x]
         </button>
@@ -164,14 +162,14 @@ export function BurnerWallets() {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[8px] uppercase tracking-[0.2em] text-white/15">dev</span>
+      <span className="font-display text-[9px] text-text-light">dev</span>
       {burnerConnectors.map((connector, i) => (
         <button
           key={connector.uid}
           onClick={() => connect({ connector })}
-          className="text-[9px] font-mono text-white/25 hover:text-neon/60 transition-colors
-                     border border-white/[0.06] hover:border-neon/20 px-2 py-0.5
-                     cursor-pointer rounded-sm"
+          className="font-data text-[10px] text-text-dark hover:text-gold transition-colors
+                     border-2 border-paper-shadow/40 hover:border-gold px-2 py-0.5
+                     cursor-pointer rounded-lg bg-paper"
         >
           {shortAddr(BURNER_ACCOUNTS[i])}
         </button>

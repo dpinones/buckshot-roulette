@@ -1,5 +1,7 @@
 import { type GameSummary } from '../hooks/useLobbyState'
 import { Phase } from '../config/contracts'
+import { getCharacter } from '../config/characters'
+import { usePlayerNames } from '../hooks/usePlayerNames'
 
 interface GameCardProps {
   game: GameSummary
@@ -11,25 +13,32 @@ function shortAddr(addr: string): string {
 }
 
 export function GameCard({ game, onClick }: GameCardProps) {
+  const names = usePlayerNames(game.players)
+
+  function getLabel(addr: string): string {
+    const name = names[addr.toLowerCase()]
+    return getCharacter(name || '').name
+  }
+
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-panel border border-white/[0.04] rounded-sm p-4
-                 hover:border-blood/30 hover:bg-surface-light transition-all duration-200
-                 cursor-pointer group"
+      className="w-full text-left bg-paper border-3 border-paper-shadow/60 rounded-[14px] p-4
+                 hover:border-gold hover:shadow-[0_0_15px_rgba(255,215,0,0.2)] transition-all duration-200
+                 cursor-pointer group shadow-[3px_3px_0_var(--color-paper-shadow)]"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-display tracking-[0.15em] text-white/25 uppercase">
+        <span className="font-display text-sm text-text-dark">
           Game #{game.id.toString()}
         </span>
         <div className="flex items-center gap-2">
           {game.phase === Phase.WAITING && (
-            <span className="text-[8px] font-mono px-1.5 py-0.5 bg-gold/10 text-gold/80 border border-gold/20 rounded-sm animate-pulse">
+            <span className="font-display text-[10px] px-2 py-0.5 bg-gold/20 text-text-dark border-2 border-gold/40 rounded-lg animate-pulse">
               BETTING
             </span>
           )}
-          <span className="text-[8px] font-mono px-1.5 py-0.5 bg-blood/10 text-blood/70 border border-blood/15 rounded-sm">
+          <span className="font-display text-[10px] px-2 py-0.5 bg-[rgba(80,30,80,0.75)] text-white border-2 border-white/20 rounded-lg">
             R{game.currentRound}
           </span>
         </div>
@@ -40,38 +49,33 @@ export function GameCard({ game, onClick }: GameCardProps) {
         {game.players.map((addr, i) => (
           <div key={addr} className="flex items-center gap-2">
             <div
-              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                game.alive[i] ? 'bg-alive' : 'bg-white/[0.06]'
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                game.alive[i] ? 'bg-alive' : 'bg-paper-shadow'
               }`}
             />
-            <span className={`text-[10px] font-mono truncate ${
-              game.alive[i] ? 'text-white/50' : 'text-white/15 line-through'
+            <span className={`font-data text-[11px] truncate ${
+              game.alive[i] ? 'text-text-dark' : 'text-text-light/50 line-through'
             }`}>
-              P{i + 1}
-            </span>
-            <span className={`text-[9px] font-mono truncate ${
-              game.alive[i] ? 'text-white/25' : 'text-white/10 line-through'
-            }`}>
-              {shortAddr(addr)}
+              {getLabel(addr)}
             </span>
           </div>
         ))}
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-2.5 border-t border-white/[0.04]">
-        <span className="text-[9px] font-mono text-white/15">
-          <span className="text-alive/60">{game.aliveCount}</span>/{game.players.length} alive
+      <div className="flex items-center justify-between pt-2.5 border-t-2 border-paper-shadow/30">
+        <span className="font-data text-[11px] text-text-light">
+          <span className="text-alive font-bold">{game.aliveCount}</span>/{game.players.length} alive
         </span>
-        <span className="text-[10px] font-mono text-gold/80">
+        <span className="font-display text-sm text-gold drop-shadow-[1px_1px_0_rgba(0,0,0,0.15)]">
           {game.prizePoolFormatted} ETH
         </span>
       </div>
 
       {/* Hover CTA */}
       <div className="mt-2.5 text-center">
-        <span className="text-[8px] uppercase tracking-[0.3em] text-white/0 group-hover:text-blood/50 transition-colors duration-200 font-display">
-          Spectate
+        <span className="font-display text-[10px] text-transparent group-hover:text-gold transition-colors duration-200">
+          SPECTATE
         </span>
       </div>
     </button>

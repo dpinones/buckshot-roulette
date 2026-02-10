@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { type Address, formatEther } from 'viem'
 import { ADDRESSES, playerProfileAbi } from '../config/contracts'
 import { client } from '../hooks/useGameState'
+import { getCharacter } from '../config/characters'
 
 interface PlayerStatsModalProps {
   address: Address
@@ -28,6 +29,7 @@ function shortAddr(addr: string): string {
 export function PlayerStatsModal({ address, label, onClose }: PlayerStatsModalProps) {
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
+  const char = getCharacter(label)
 
   useEffect(() => {
     let active = true
@@ -61,7 +63,6 @@ export function PlayerStatsModal({ address, label, onClose }: PlayerStatsModalPr
           kd,
         })
       } catch {
-        // No profile yet
         setStats({
           gamesPlayed: 0, gamesWon: 0, kills: 0, deaths: 0,
           shotsFired: 0, itemsUsed: 0, totalEarnings: '0',
@@ -98,23 +99,27 @@ export function PlayerStatsModal({ address, label, onClose }: PlayerStatsModalPr
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]"
+      className="fixed inset-0 z-[200] flex items-center justify-center animate-[fadeIn_0.2s_ease-out]"
+      style={{ background: 'rgba(62, 39, 35, 0.5)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
     >
       <div
-        className="bg-[#0c0c14] border border-white/[0.08] rounded-sm w-[340px] animate-[scaleIn_0.2s_ease-out]"
+        className="bg-paper border-3 border-text-dark rounded-[16px] w-[340px] animate-[scaleIn_0.2s_ease-out] shadow-[4px_4px_0_var(--color-paper-shadow)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-white/[0.06]">
+        <div className="px-5 py-4 border-b-2 border-paper-shadow/40">
           <div className="flex items-center justify-between">
-            <div>
-              <span className="font-display text-xl font-bold text-white/90">{label}</span>
-              <div className="text-[10px] font-mono text-white/20 mt-0.5">{shortAddr(address)}</div>
+            <div className="flex items-center gap-3">
+              <img src={char.img} alt={label} className="w-12 h-12 rounded-[10px] object-contain bg-white/50 p-0.5" />
+              <div>
+                <span className="font-display text-lg text-text-dark">{char.name}</span>
+                <div className="font-data text-[10px] text-text-light mt-0.5">{shortAddr(address)}</div>
+              </div>
             </div>
             <button
               onClick={onClose}
-              className="text-white/20 hover:text-white/50 text-lg cursor-pointer transition-colors px-1"
+              className="text-text-light hover:text-text-dark text-lg cursor-pointer transition-colors px-1"
             >
               {'\u2715'}
             </button>
@@ -124,17 +129,17 @@ export function PlayerStatsModal({ address, label, onClose }: PlayerStatsModalPr
         {/* Stats */}
         <div className="px-5 py-4">
           {loading ? (
-            <div className="text-[10px] text-white/15 font-mono animate-pulse text-center py-6">
+            <div className="font-data text-sm text-text-light animate-pulse text-center py-6">
               Loading stats...
             </div>
           ) : (
             <div className="space-y-2.5">
               {rows.map((row) => (
                 <div key={row.label} className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-[0.15em] text-white/25 font-display">
+                  <span className="font-display text-[11px] text-text-light">
                     {row.label}
                   </span>
-                  <span className={`text-[12px] font-mono tabular-nums ${row.color ?? 'text-white/50'}`}>
+                  <span className={`font-data text-sm font-bold tabular-nums ${row.color ?? 'text-text-dark'}`}>
                     {row.value}
                   </span>
                 </div>
