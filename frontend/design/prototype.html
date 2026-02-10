@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buckshot Roulette — Spectator UI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --heart-full: #FF4081;
+  --heart-empty: #FFCDD2;
+  --shell-live: #FF1744;
+  --shell-blank: #90CAF9;
+  --gold: #FFD700;
+  --text-dark: #3E2723;
+  --text-light: #795548;
+  --table-pink: #E8B4D8;
+  --table-border: #C88FBB;
+  --paper-shadow: #D4C5A9;
+  --font-display: 'Fredoka One', cursive;
+  --font-body: 'Nunito', sans-serif;
+  --font-data: 'Comic Neue', cursive;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-body);
+  color: var(--text-dark);
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  user-select: none;
+}
+
+.game-screen {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.game-bg {
+  position: absolute;
+  inset: 0;
+  background: url('images/bg.png') center center / cover no-repeat;
+  z-index: 0;
+}
+
+.game-bg video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ==========================================================
+   TOP BAR — 33vh, agent info cards
+   ========================================================== */
+.top-bar {
+  position: relative;
+  z-index: 50;
+  height: 33.33vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 12px 0;
+  flex-shrink: 0;
+}
+
+.agent-card {
+  flex: 1;
+  max-width: 180px;
+  min-width: 0;
+  background: rgba(200, 230, 200, 0.92);
+  border: 3px solid #6AAF6A;
+  border-radius: 14px;
+  padding: 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  transition: all 0.4s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18), 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.agent-card.dead {
+  background: rgba(200, 200, 200, 0.85);
+  border-color: #999;
+  filter: grayscale(0.7);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+
+.agent-card.active {
+  border-color: var(--gold);
+  border-width: 4px;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5), 0 4px 12px rgba(0,0,0,0.2);
+  transform: translateY(-4px);
+}
+
+.agent-card.next { border-color: #FFE082; }
+
+.agent-card-header { display: flex; align-items: center; gap: 10px; }
+
+.agent-avatar {
+  width: 56px; height: 56px;
+  border-radius: 10px;
+  object-fit: contain;
+  background: rgba(255,255,255,0.5);
+  padding: 2px;
+}
+
+.agent-card.dead .agent-avatar { filter: grayscale(1) opacity(0.5); }
+
+.agent-info { flex: 1; min-width: 0; }
+
+.agent-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--text-dark);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-card.dead .agent-name { color: #888; }
+
+.agent-role {
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+.turn-badge {
+  position: absolute; top: -10px; right: -10px;
+  background: var(--gold); color: var(--text-dark);
+  font-family: var(--font-display); font-size: 11px;
+  padding: 3px 10px; border-radius: 12px;
+  border: 2px solid #DAA520;
+  display: none;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.25);
+}
+
+.agent-card.active .turn-badge { display: block; }
+
+.next-badge {
+  position: absolute; top: -10px; right: -10px;
+  background: #FFE082; color: var(--text-dark);
+  font-family: var(--font-display); font-size: 10px;
+  padding: 2px 8px; border-radius: 12px;
+  border: 2px solid #F9A825;
+  display: none;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.agent-card.next .next-badge { display: block; }
+
+.card-hearts { display: flex; gap: 4px; margin-top: 4px; }
+
+.card-heart { font-size: 16px; line-height: 1; transition: all 0.3s; }
+.card-heart.full { color: var(--heart-full); }
+.card-heart.empty { color: var(--heart-empty); }
+.card-heart.damage { animation: heartPop 0.4s ease; }
+
+@keyframes heartPop {
+  0%, 100% { transform: scale(1); }
+  30% { transform: scale(1.5); }
+  60% { transform: scale(0.8); }
+}
+
+.card-items { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+
+.card-item {
+  width: 26px; height: 26px;
+  background: rgba(255,255,255,0.7);
+  border: 1.5px solid rgba(0,0,0,0.2);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+
+.dead-label {
+  font-family: var(--font-display); font-size: 13px;
+  color: #999; text-align: center; margin-top: 4px;
+  display: none;
+}
+
+.agent-card.dead .dead-label { display: block; }
+.agent-card.dead .card-hearts { display: none; }
+.agent-card.dead .card-items { display: none; }
+
+/* ==========================================================
+   MIDDLE ZONE — 33vh, characters + thought bubbles
+   Characters extend below into the table area (half hidden).
+   ========================================================== */
+.middle-zone {
+  position: relative;
+  z-index: 6;
+  height: 33.33vh;
+  flex-shrink: 0;
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.char-slot {
+  position: absolute;
+  bottom: -14vh;
+  pointer-events: auto;
+  /* Use translateX for centering so all positions animate via 'left' */
+  transform: translateX(-50%);
+  transition:
+    left 0.7s cubic-bezier(0.34, 1.56, 0.64, 1),
+    height 0.7s cubic-bezier(0.34, 1.56, 0.64, 1),
+    bottom 0.7s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.5s ease,
+    filter 0.5s ease;
+}
+
+.char-slot img {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(6px 8px 4px rgba(0,0,0,0.3));
+}
+
+/* Paper Mario idle animation — gentle float + subtle squash */
+@keyframes paperIdle {
+  0%, 100% {
+    transform: translateY(0px) scaleX(1) scaleY(1);
+  }
+  25% {
+    transform: translateY(-8px) scaleX(1.02) scaleY(0.98);
+  }
+  50% {
+    transform: translateY(-3px) scaleX(0.98) scaleY(1.02);
+  }
+  75% {
+    transform: translateY(-10px) scaleX(1.01) scaleY(0.99);
+  }
+}
+
+.char-slot:not(.dead-char) img {
+  animation: paperIdle 4s ease-in-out infinite;
+}
+
+.char-slot:nth-child(1) img { animation-delay: 0s; }
+.char-slot:nth-child(2) img { animation-delay: 0.8s; }
+.char-slot:nth-child(3) img { animation-delay: 1.6s; }
+.char-slot:nth-child(4) img { animation-delay: 2.4s; }
+.char-slot:nth-child(5) img { animation-delay: 0.4s; }
+.char-slot:nth-child(6) img { animation-delay: 1.2s; }
+.char-slot:nth-child(7) img { animation-delay: 2.0s; }
+
+/* ---- Position classes (ALL use left + translateX(-50%)) ---- */
+.char-slot.pos-center {
+  left: 50%;
+  height: 52vh;
+  bottom: -14vh;
+  z-index: 8;
+  opacity: 1;
+}
+
+.char-slot.pos-left {
+  left: 16%;
+  height: 40vh;
+  bottom: -10vh;
+  z-index: 5;
+  opacity: 1;
+}
+
+.char-slot.pos-right {
+  left: 84%;
+  height: 40vh;
+  bottom: -10vh;
+  z-index: 5;
+  opacity: 1;
+}
+
+.char-slot.pos-off-left {
+  left: -15%;
+  height: 34vh;
+  bottom: -10vh;
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.char-slot.pos-off-right {
+  left: 115%;
+  height: 34vh;
+  bottom: -10vh;
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.char-slot.pos-hidden {
+  left: 50%;
+  height: 30vh;
+  bottom: -10vh;
+  z-index: 3;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Dead character */
+.char-slot.dead-char img {
+  filter: grayscale(0.8) brightness(0.6) drop-shadow(6px 8px 4px rgba(0,0,0,0.3));
+  opacity: 0.4;
+  animation: none !important;
+}
+
+/* ==========================================================
+   THINKING BUBBLE — above character, can overlap top bar
+   ========================================================== */
+.thinking-bubble {
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: none;
+  animation: bubbleFloat 2.5s ease-in-out infinite;
+}
+
+.thinking-bubble.visible { display: block; }
+
+@keyframes bubbleFloat {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-10px); }
+}
+
+.bubble-content {
+  background: white;
+  border: 3px solid var(--text-dark);
+  border-radius: 22px;
+  padding: 10px 18px;
+  font-family: var(--font-data);
+  font-size: 16px; font-weight: 700;
+  color: var(--text-dark);
+  white-space: nowrap;
+  box-shadow: 4px 4px 0 var(--paper-shadow);
+}
+
+.bubble-dots {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 5px; margin-top: 4px;
+}
+
+.bubble-dots span {
+  background: white;
+  border: 2px solid var(--text-dark);
+  border-radius: 50%;
+}
+
+.bubble-dots span:nth-child(1) { width: 16px; height: 16px; }
+.bubble-dots span:nth-child(2) { width: 11px; height: 11px; }
+.bubble-dots span:nth-child(3) { width: 7px; height: 7px; }
+
+/* ==========================================================
+   TABLE — bottom 33vh, in front of characters
+   ========================================================== */
+.table-area {
+  position: relative;
+  z-index: 20;
+  height: 33.34vh;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, var(--table-pink) 0%, #D9A0C8 100%);
+  border-top: 5px solid var(--table-border);
+  border-radius: 50% 50% 0 0 / 40px 40px 0 0;
+  box-shadow: 0 -6px 20px rgba(0,0,0,0.15);
+}
+
+.table-content {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 21;
+  width: 90%;
+  max-width: 900px;
+  height: 100%;
+  padding: 16px 0;
+  gap: 2vh;
+}
+
+.table-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.shotgun-img {
+  width: min(40vw, 360px); height: auto;
+  filter: drop-shadow(4px 5px 6px rgba(0,0,0,0.4));
+  transform: rotate(-5deg);
+}
+
+.shells-row { display: flex; gap: 10px; align-items: center; }
+
+.shell-img {
+  height: 8vh;
+  width: auto;
+  filter: drop-shadow(2px 3px 2px rgba(0,0,0,0.3));
+  transition: transform 0.2s;
+}
+
+.shell-img:hover {
+  transform: scale(1.1);
+}
+
+.shell-label {
+  font-family: var(--font-display); font-size: 18px;
+  color: var(--text-dark);
+  text-shadow: 0 1px 2px rgba(255,255,255,0.5);
+}
+
+.table-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.88);
+  border: 2.5px solid rgba(0,0,0,0.15);
+  border-radius: 24px;
+  padding: 8px 22px;
+  font-family: var(--font-data); font-size: 18px; font-weight: 700;
+  color: var(--text-dark);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+}
+
+.table-badge .badge-icon { font-size: 20px; }
+
+.table-badge.round-badge {
+  background: rgba(80, 30, 80, 0.75);
+  color: white;
+  border-color: rgba(255,255,255,0.2);
+  font-family: var(--font-display); font-size: 20px;
+}
+
+.table-badge.prize-badge {
+  background: rgba(255, 215, 0, 0.9);
+  border-color: #DAA520;
+  color: var(--text-dark);
+}
+
+/* ==========================================================
+   EVENT LOG — floating notebook
+   ========================================================== */
+.event-log {
+  position: fixed;
+  bottom: 16px; left: 16px;
+  width: 300px; height: 200px;
+  background: #FFF9C4;
+  border: 2px solid var(--paper-shadow);
+  border-radius: 4px 12px 12px 4px;
+  box-shadow: 4px 4px 0 var(--paper-shadow), 0 4px 12px rgba(0,0,0,0.15);
+  overflow: hidden;
+  font-family: var(--font-data); font-size: 12px;
+  z-index: 60;
+  opacity: 0.94;
+}
+
+.event-log::before {
+  content: ''; position: absolute;
+  left: 24px; top: 0; bottom: 0;
+  width: 2px; background: #E57373; z-index: 2;
+}
+
+.spiral-dots {
+  position: absolute; left: 0; top: 10px; bottom: 10px; width: 20px;
+  display: flex; flex-direction: column; gap: 14px; align-items: center; z-index: 3;
+}
+
+.spiral-dot {
+  width: 8px; height: 8px;
+  background: #bbb; border-radius: 50%; border: 1px solid #999;
+}
+
+.log-title {
+  font-family: var(--font-display); font-size: 13px;
+  padding: 8px 8px 6px 32px; color: var(--text-dark);
+  border-bottom: 1px solid var(--paper-shadow);
+}
+
+.log-entries {
+  padding: 6px 10px 8px 32px;
+  overflow-y: auto;
+  height: calc(100% - 34px);
+  background: repeating-linear-gradient(
+    transparent, transparent 19px,
+    #E8D9A0 19px, #E8D9A0 20px
+  );
+}
+
+.log-entry { padding: 1px 0; line-height: 20px; color: var(--text-dark); font-size: 11px; }
+.log-entry .time { color: var(--text-light); font-size: 10px; margin-right: 4px; }
+
+/* ==========================================================
+   CONTROL PANEL
+   ========================================================== */
+.control-panel {
+  position: fixed; bottom: 16px; right: 16px;
+  background: rgba(255, 253, 245, 0.96);
+  border: 3px solid var(--text-dark);
+  border-radius: 16px; padding: 14px;
+  box-shadow: 4px 4px 0 var(--paper-shadow), 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 150; max-width: 180px;
+}
+
+.control-panel.collapsed .panel-body { display: none; }
+.control-panel.collapsed { padding: 8px 14px; }
+
+.panel-toggle {
+  font-family: var(--font-display); font-size: 12px;
+  color: var(--text-dark); cursor: pointer;
+  margin-bottom: 8px; text-align: center;
+}
+
+.control-panel.collapsed .panel-toggle { margin-bottom: 0; }
+
+.panel-body { display: flex; flex-direction: column; gap: 5px; }
+
+.ctrl-btn {
+  font-family: var(--font-body); font-weight: 700; font-size: 11px;
+  padding: 7px 10px;
+  border: 2px solid var(--text-dark);
+  border-radius: 10px;
+  background: #FFF8E7; color: var(--text-dark);
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--paper-shadow);
+  transition: all 0.15s; text-align: left;
+}
+
+.ctrl-btn:hover { transform: translateY(-1px); box-shadow: 2px 3px 0 var(--paper-shadow); background: #FFF3D0; }
+.ctrl-btn:active { transform: translateY(1px); box-shadow: 1px 1px 0 var(--paper-shadow); }
+
+/* ==========================================================
+   GAME OVER OVERLAY
+   ========================================================== */
+.game-over-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 200; display: none;
+  align-items: center; justify-content: center; flex-direction: column;
+  backdrop-filter: blur(4px);
+}
+
+.game-over-overlay.visible { display: flex; }
+
+.go-title {
+  font-family: var(--font-display); font-size: 52px;
+  color: white; text-shadow: 3px 3px 0 rgba(0,0,0,0.4);
+  margin-bottom: 16px;
+}
+
+.go-winner-img {
+  height: 260px; width: auto;
+  filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.6));
+  animation: winBounce 0.5s ease infinite alternate;
+}
+
+@keyframes winBounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-16px); }
+}
+
+.go-winner-name {
+  font-family: var(--font-display); font-size: 28px;
+  color: var(--gold); margin-top: 10px;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+}
+
+.go-prize {
+  background: linear-gradient(135deg, var(--gold), #FFC107, var(--gold));
+  border: 3px solid #DAA520; border-radius: 14px;
+  padding: 10px 30px; margin-top: 14px;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.2);
+}
+
+.go-prize-label { font-family: var(--font-body); font-size: 12px; font-weight: 700; color: var(--text-dark); }
+.go-prize-amount { font-family: var(--font-display); font-size: 26px; color: var(--text-dark); }
+
+.go-losers { display: flex; gap: 20px; margin-top: 20px; }
+
+.go-loser-img {
+  height: 80px; width: auto;
+  filter: grayscale(0.8) brightness(0.5) drop-shadow(2px 3px 4px rgba(0,0,0,0.3));
+  opacity: 0.6; transform: rotate(-10deg);
+}
+
+.go-close {
+  margin-top: 20px;
+  font-family: var(--font-display); font-size: 14px;
+  padding: 10px 28px; background: white;
+  border: 3px solid var(--text-dark); border-radius: 14px;
+  cursor: pointer; box-shadow: 3px 3px 0 var(--paper-shadow);
+  color: var(--text-dark);
+}
+
+.go-close:hover { background: #FFF3D0; }
+
+.confetti {
+  position: fixed; width: 10px; height: 16px;
+  top: -20px; z-index: 201; border-radius: 2px;
+  animation: confDrop linear forwards;
+}
+
+@keyframes confDrop {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0.5; }
+}
+
+.turn-flash {
+  position: fixed; inset: 0;
+  background: rgba(255, 215, 0, 0.15);
+  z-index: 100; pointer-events: none;
+  opacity: 0; transition: opacity 0.15s;
+}
+
+.turn-flash.active { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="game-screen">
+  <div class="game-bg">
+    <video autoplay loop muted playsinline>
+      <source src="images/bg.mp4" type="video/mp4">
+    </video>
+  </div>
+  <div class="turn-flash" id="turnFlash"></div>
+
+  <!-- TOP 33% — Agent info cards -->
+  <div class="top-bar" id="topBar"></div>
+
+  <!-- MIDDLE 33% — Characters on stage -->
+  <div class="middle-zone">
+    <div class="stage" id="stage"></div>
+  </div>
+
+  <!-- BOTTOM 33% — Table with game info -->
+  <div class="table-area">
+    <div class="table-content" id="tableContent"></div>
+  </div>
+</div>
+
+<!-- Event Log (fixed) -->
+<div class="event-log">
+  <div class="spiral-dots">
+    <div class="spiral-dot"></div><div class="spiral-dot"></div>
+    <div class="spiral-dot"></div><div class="spiral-dot"></div>
+    <div class="spiral-dot"></div><div class="spiral-dot"></div>
+    <div class="spiral-dot"></div><div class="spiral-dot"></div>
+    <div class="spiral-dot"></div><div class="spiral-dot"></div>
+  </div>
+  <div class="log-title">Event Log</div>
+  <div class="log-entries" id="logEntries">
+    <div class="log-entry"><span class="time">12:01</span> Game started &mdash; Round 2</div>
+    <div class="log-entry"><span class="time">12:02</span> El Calculador used Magnifying Glass</div>
+    <div class="log-entry"><span class="time">12:02</span> El Calculador shot El Agresivo &mdash; LIVE! 1 dmg</div>
+    <div class="log-entry"><span class="time">12:03</span> El Agresivo used Handsaw</div>
+    <div class="log-entry"><span class="time">12:04</span> La Tramposa shot self &mdash; BLANK! Extra turn</div>
+    <div class="log-entry"><span class="time">12:05</span> El Aprendiz eliminated!</div>
+  </div>
+</div>
+
+<!-- Game Over -->
+<div class="game-over-overlay" id="gameOverOverlay">
+  <div class="go-title">GAME OVER!</div>
+  <img id="goWinnerImg" class="go-winner-img" src="images/bunny.png" alt="winner">
+  <div class="go-winner-name" id="goWinnerName">La Tramposa Wins!</div>
+  <div class="go-prize">
+    <div class="go-prize-label">Prize Pool</div>
+    <div class="go-prize-amount">0.05 ETH</div>
+  </div>
+  <div class="go-losers" id="goLosers"></div>
+  <button class="go-close" onclick="hideGameOver()">Close</button>
+</div>
+
+<!-- Controls -->
+<div class="control-panel" id="controlPanel">
+  <div class="panel-toggle" onclick="togglePanel()">&#x1F3AE; Controls &#x25BC;</div>
+  <div class="panel-body">
+    <button class="ctrl-btn" onclick="nextTurn()">&#x27F3; Next Turn</button>
+    <button class="ctrl-btn" onclick="toggleThinking()">&#x1F4AD; Thinking Bubble</button>
+    <button class="ctrl-btn" onclick="damageActive()">&#x1F494; Damage Active</button>
+    <button class="ctrl-btn" onclick="killNext()">&#x1F480; Kill Next Player</button>
+    <button class="ctrl-btn" onclick="useItemActive()">&#x1F0CF; Use Item</button>
+    <button class="ctrl-btn" onclick="showGameOver()">&#x1F3C6; Game Over</button>
+    <button class="ctrl-btn" onclick="resetAll()">&#x21BA; Reset</button>
+  </div>
+</div>
+
+<script>
+// ============================================
+// DATA
+// ============================================
+const AGENTS = [
+  { name: 'El Calculador', role: 'Probabilidades', img: 'images/sheep.png', blinkImg: 'images/sheep_blink.png',
+    hp: 3, maxHp: 4, alive: true, items: [1, 3],
+    thought: 'P(live)=0.67 ... E[dmg]=1.34' },
+  { name: 'El Agresivo', role: 'Fuerza bruta', img: 'images/pio.png', blinkImg: 'images/pio_blink.png',
+    hp: 2, maxHp: 4, alive: true, items: [2, 4],
+    thought: 'DESTROY!! \u{1F4A2}\u{1F525}\u{1F480}' },
+  { name: 'La Tramposa', role: 'Estratega', img: 'images/bunny.png', blinkImg: 'images/bunny_blink.png',
+    hp: 4, maxHp: 4, alive: true, items: [1, 6, 5],
+    thought: '\u265F\u{1F4A1} "...checkmate"' },
+  { name: 'El Filosofo', role: 'Equilibrio zen', img: 'images/sheep.png', blinkImg: 'images/sheep_blink.png',
+    hp: 3, maxHp: 4, alive: true, items: [5],
+    thought: '\u262F balance in all...' },
+  { name: 'El Aprendiz', role: 'Adaptable', img: 'images/bunny.png', blinkImg: 'images/bunny_blink.png',
+    hp: 0, maxHp: 4, alive: false, items: [],
+    thought: 'Hmm... \u2699\uFE0F\u2753' },
+  { name: 'La Zorra', role: 'Oportunista', img: 'images/foxy.png', blinkImg: 'images/foxy_blink.png',
+    hp: 4, maxHp: 4, alive: true, items: [2, 3, 6],
+    thought: 'Wait for it... \u{1F98A}\u{1F4A8}' },
+  { name: 'La Gatita', role: 'Sigilo', img: 'images/kitty.png', blinkImg: 'images/kitty_blink.png',
+    hp: 3, maxHp: 4, alive: true, items: [1, 5],
+    thought: '\u{1F431} ...mew \u{1F52A}' }
+];
+
+const ITEM_ICONS = {
+  1: '\u{1F50D}', 2: '\u{1F37A}', 3: '\u{1FA9A}',
+  4: '\u{1F517}', 5: '\u{1F6AC}', 6: '\u{1F504}'
+};
+
+let shells = ['live', 'live', 'blank', 'blank', 'blank'];
+let currentRound = 2;
+let currentTurnIdx = 0;
+let thinkingVisible = false;
+
+// Track each character's current position class for smooth transitions
+const charPositions = {};
+
+// ============================================
+// HELPERS
+// ============================================
+function getAliveIndices() {
+  return AGENTS.map((a, i) => a.alive ? i : -1).filter(i => i >= 0);
+}
+
+function getNextAliveIdx(fromIdx) {
+  const alive = getAliveIndices();
+  if (alive.length === 0) return fromIdx;
+  const pos = alive.indexOf(fromIdx);
+  if (pos < 0) return alive[0];
+  return alive[(pos + 1) % alive.length];
+}
+
+function getPrevAliveIdx(fromIdx) {
+  const alive = getAliveIndices();
+  if (alive.length === 0) return fromIdx;
+  const pos = alive.indexOf(fromIdx);
+  if (pos < 0) return alive[alive.length - 1];
+  return alive[(pos - 1 + alive.length) % alive.length];
+}
+
+function addLog(text) {
+  const log = document.getElementById('logEntries');
+  const now = new Date();
+  const t = String(now.getHours()).padStart(2, '0') + ':' +
+            String(now.getMinutes()).padStart(2, '0');
+  const e = document.createElement('div');
+  e.className = 'log-entry';
+  e.innerHTML = '<span class="time">' + t + '</span> ' + text;
+  log.appendChild(e);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ============================================
+// RENDER — TOP BAR
+// ============================================
+function renderTopBar() {
+  const bar = document.getElementById('topBar');
+  const nextIdx = getNextAliveIdx(currentTurnIdx);
+  bar.innerHTML = AGENTS.map((a, i) => {
+    const isActive = i === currentTurnIdx;
+    const isNext = i === nextIdx && !isActive;
+    let cls = 'agent-card';
+    if (!a.alive) cls += ' dead';
+    else if (isActive) cls += ' active';
+    else if (isNext) cls += ' next';
+
+    let hearts = '';
+    for (let h = 0; h < a.maxHp; h++)
+      hearts += '<span class="card-heart ' + (h < a.hp ? 'full' : 'empty') + '">\u2665</span>';
+
+    let items = a.items.map(id =>
+      '<span class="card-item">' + (ITEM_ICONS[id] || '?') + '</span>'
+    ).join('');
+
+    return `
+      <div class="${cls}" data-idx="${i}">
+        <span class="turn-badge">TURN</span>
+        <span class="next-badge">NEXT</span>
+        <div class="agent-card-header">
+          <img class="agent-avatar" src="${a.img}" alt="${a.name}">
+          <div class="agent-info">
+            <div class="agent-name">${a.name}</div>
+            <div class="agent-role">${a.role}</div>
+          </div>
+        </div>
+        <div class="card-hearts">${hearts}</div>
+        <div class="card-items">${items}</div>
+        <div class="dead-label">ELIMINATED</div>
+      </div>`;
+  }).join('');
+}
+
+// ============================================
+// STAGE — Persistent slots
+// ============================================
+function initStage() {
+  const stage = document.getElementById('stage');
+  stage.innerHTML = '';
+  AGENTS.forEach((a, i) => {
+    const slot = document.createElement('div');
+    slot.className = 'char-slot pos-hidden';
+    slot.id = 'char-' + i;
+    slot.innerHTML = `
+      <div class="thinking-bubble" id="bubble-${i}">
+        <div class="bubble-content">${a.thought}</div>
+        <div class="bubble-dots">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+      <img src="${a.img}" alt="${a.name}">
+    `;
+    stage.appendChild(slot);
+    charPositions[i] = 'pos-hidden';
+  });
+}
+
+function updateStagePositions(isTransition) {
+  const alive = getAliveIndices();
+  if (alive.length === 0) return;
+
+  const centerIdx = currentTurnIdx;
+  const leftIdx = getPrevAliveIdx(centerIdx);
+  const rightIdx = getNextAliveIdx(centerIdx);
+
+  // Build new position map
+  const newPosMap = {};
+  newPosMap[centerIdx] = 'pos-center';
+  if (leftIdx !== centerIdx) newPosMap[leftIdx] = 'pos-left';
+  if (rightIdx !== centerIdx && !(rightIdx in newPosMap)) newPosMap[rightIdx] = 'pos-right';
+
+  AGENTS.forEach((a, i) => {
+    const slot = document.getElementById('char-' + i);
+    if (!slot) return;
+
+    const oldPos = charPositions[i] || 'pos-hidden';
+    const newPos = newPosMap[i] || null;
+
+    // Remove all position classes
+    slot.classList.remove(
+      'pos-center', 'pos-left', 'pos-right',
+      'pos-off-left', 'pos-off-right', 'pos-hidden',
+      'dead-char'
+    );
+
+    if (!a.alive) slot.classList.add('dead-char');
+
+    if (newPos) {
+      // Character entering from off-screen right (wasn't visible, now goes to right)
+      if (isTransition && newPos === 'pos-right' &&
+          (oldPos === 'pos-hidden' || oldPos === 'pos-off-left' || oldPos === 'pos-off-right')) {
+        // Snap to off-right instantly, then animate in
+        slot.style.transition = 'none';
+        slot.classList.add('pos-off-right');
+        slot.offsetHeight; // force reflow
+        slot.style.transition = '';
+        requestAnimationFrame(() => {
+          slot.classList.remove('pos-off-right');
+          slot.classList.add(newPos);
+        });
+      } else {
+        slot.classList.add(newPos);
+      }
+      charPositions[i] = newPos;
+    } else {
+      // Character exiting — go off-screen left
+      if (isTransition && (oldPos === 'pos-left' || oldPos === 'pos-center' || oldPos === 'pos-right')) {
+        slot.classList.add('pos-off-left');
+        charPositions[i] = 'pos-off-left';
+      } else {
+        slot.classList.add('pos-hidden');
+        charPositions[i] = 'pos-hidden';
+      }
+    }
+
+    // Thinking bubble
+    const bubble = document.getElementById('bubble-' + i);
+    if (bubble) {
+      bubble.classList.toggle('visible',
+        newPosMap[i] === 'pos-center' && a.alive && thinkingVisible
+      );
+    }
+  });
+}
+
+// ============================================
+// TABLE — with bullet images
+// ============================================
+function renderTable() {
+  const tc = document.getElementById('tableContent');
+  const liveCount = shells.filter(s => s === 'live').length;
+  const blankCount = shells.filter(s => s === 'blank').length;
+
+  let shellsHtml = shells.map(s =>
+    s === 'live'
+      ? '<img class="shell-img" src="images/bala_roja.png" alt="live" title="Live">'
+      : '<img class="shell-img" src="images/bala_gris.png" alt="blank" title="Blank">'
+  ).join('');
+
+  tc.innerHTML = `
+    <div class="table-row" style="gap:24px;">
+      <img src="images/shotgun.png" class="shotgun-img" alt="shotgun">
+    </div>
+    <div class="table-row">
+      <div class="shells-row">
+        <span class="shell-label">${liveCount} live</span>
+        ${shellsHtml}
+        <span class="shell-label">${blankCount} blank</span>
+      </div>
+    </div>
+    <div class="table-row" style="gap:10px;">
+      <div class="table-badge round-badge">Round ${currentRound}</div>
+      <div class="table-badge"><span class="badge-icon">\u2665</span> ${AGENTS[currentTurnIdx].maxHp} HP Max</div>
+      <div class="table-badge prize-badge"><span class="badge-icon">\u{1F3C6}</span> 0.05 ETH</div>
+    </div>`;
+}
+
+function renderAll(isTransition) {
+  renderTopBar();
+  updateStagePositions(isTransition);
+  renderTable();
+}
+
+// ============================================
+// CONTROLS
+// ============================================
+function nextTurn() {
+  const nextIdx = getNextAliveIdx(currentTurnIdx);
+  if (nextIdx === currentTurnIdx) return;
+
+  // Flash
+  const flash = document.getElementById('turnFlash');
+  flash.classList.add('active');
+  setTimeout(() => flash.classList.remove('active'), 200);
+
+  // Play turn sound
+  turnSfx.currentTime = 0;
+  turnSfx.play().catch(() => {});
+
+  currentTurnIdx = nextIdx;
+  thinkingVisible = false;
+  renderAll(true); // true = transition mode
+  addLog('Turn: <strong>' + AGENTS[currentTurnIdx].name + '</strong>');
+}
+
+function toggleThinking() {
+  thinkingVisible = !thinkingVisible;
+  updateStagePositions(false);
+}
+
+function damageActive() {
+  const a = AGENTS[currentTurnIdx];
+  if (!a.alive || a.hp <= 0) return;
+  a.hp--;
+  renderAll(false);
+  addLog(a.name + ' took 1 damage! (' + a.hp + '/' + a.maxHp + ' HP)');
+
+  if (shells.length > 0) {
+    const li = shells.indexOf('live');
+    if (li >= 0) shells.splice(li, 1); else shells.pop();
+    renderTable();
+  }
+
+  setTimeout(() => {
+    const card = document.querySelector('.agent-card.active');
+    if (card) {
+      const hearts = card.querySelectorAll('.card-heart.empty');
+      if (hearts.length > 0) {
+        hearts[0].classList.add('damage');
+        setTimeout(() => hearts[0].classList.remove('damage'), 500);
+      }
+    }
+  }, 50);
+}
+
+function killNext() {
+  const alive = getAliveIndices();
+  let target = -1;
+  for (const idx of alive) {
+    if (idx !== currentTurnIdx) { target = idx; break; }
+  }
+  if (target < 0) return;
+  AGENTS[target].alive = false;
+  AGENTS[target].hp = 0;
+  renderAll(true);
+  addLog('<strong>' + AGENTS[target].name + '</strong> eliminated!');
+}
+
+function useItemActive() {
+  const a = AGENTS[currentTurnIdx];
+  if (a.items.length === 0) { addLog(a.name + ' has no items!'); return; }
+  const removed = a.items.shift();
+  renderAll(false);
+  addLog(a.name + ' used ' + (ITEM_ICONS[removed] || '?') + '!');
+}
+
+function showGameOver() {
+  const winner = AGENTS[2];
+  document.getElementById('goWinnerImg').src = winner.img;
+  document.getElementById('goWinnerName').textContent = winner.name + ' Wins!';
+  document.getElementById('goLosers').innerHTML = AGENTS
+    .filter((_, i) => i !== 2)
+    .map(a => '<img class="go-loser-img" src="' + a.img + '" alt="' + a.name + '">')
+    .join('');
+  document.getElementById('gameOverOverlay').classList.add('visible');
+  spawnConfetti();
+}
+
+function hideGameOver() {
+  document.getElementById('gameOverOverlay').classList.remove('visible');
+  document.querySelectorAll('.confetti').forEach(c => c.remove());
+}
+
+function spawnConfetti() {
+  const colors = ['#FF6B8A', '#89CFF0', '#77DD77', '#C3B1E1', '#FFD580', '#FFD700', '#FF4081', '#90CAF9'];
+  for (let i = 0; i < 35; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti';
+    p.style.left = (Math.random() * 100) + 'vw';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.width = (6 + Math.random() * 10) + 'px';
+    p.style.height = (10 + Math.random() * 14) + 'px';
+    p.style.animationDuration = (2 + Math.random() * 3) + 's';
+    p.style.animationDelay = (Math.random() * 2) + 's';
+    document.body.appendChild(p);
+  }
+}
+
+function resetAll() {
+  AGENTS[0].hp = 3; AGENTS[0].alive = true; AGENTS[0].items = [1, 3];
+  AGENTS[1].hp = 2; AGENTS[1].alive = true; AGENTS[1].items = [2, 4];
+  AGENTS[2].hp = 4; AGENTS[2].alive = true; AGENTS[2].items = [1, 6, 5];
+  AGENTS[3].hp = 3; AGENTS[3].alive = true; AGENTS[3].items = [5];
+  AGENTS[4].hp = 0; AGENTS[4].alive = false; AGENTS[4].items = [];
+  AGENTS[5].hp = 4; AGENTS[5].alive = true; AGENTS[5].items = [2, 3, 6];
+  AGENTS[6].hp = 3; AGENTS[6].alive = true; AGENTS[6].items = [1, 5];
+  shells = ['live', 'live', 'blank', 'blank', 'blank'];
+  currentTurnIdx = 0;
+  thinkingVisible = false;
+  hideGameOver();
+  // Reset position tracking
+  Object.keys(charPositions).forEach(k => charPositions[k] = 'pos-hidden');
+  initStage();
+  renderAll(false);
+  startAllBlinks();
+  addLog('State reset.');
+}
+
+function togglePanel() {
+  document.getElementById('controlPanel').classList.toggle('collapsed');
+}
+
+// ============================================
+// BLINK SYSTEM — swap to _blink img briefly at random intervals
+// ============================================
+const blinkTimers = {};
+
+function preloadBlinkImages() {
+  AGENTS.forEach(a => {
+    const img = new Image();
+    img.src = a.blinkImg;
+  });
+}
+
+function scheduleBlink(idx) {
+  if (blinkTimers[idx]) clearTimeout(blinkTimers[idx]);
+  // Random interval: 2-6 seconds between blinks
+  const delay = 2000 + Math.random() * 4000;
+  blinkTimers[idx] = setTimeout(() => doBlink(idx), delay);
+}
+
+function doBlink(idx) {
+  const a = AGENTS[idx];
+  if (!a.alive) { scheduleBlink(idx); return; }
+
+  const slot = document.getElementById('char-' + idx);
+  if (!slot) { scheduleBlink(idx); return; }
+
+  const img = slot.querySelector('img');
+  if (!img) { scheduleBlink(idx); return; }
+
+  // Swap to blink image
+  img.src = a.blinkImg;
+
+  // Hold blink for 120-200ms then swap back
+  const blinkDuration = 120 + Math.random() * 80;
+  setTimeout(() => {
+    img.src = a.img;
+    // Chance of double-blink (30%)
+    if (Math.random() < 0.3) {
+      setTimeout(() => {
+        img.src = a.blinkImg;
+        setTimeout(() => {
+          img.src = a.img;
+          scheduleBlink(idx);
+        }, blinkDuration);
+      }, 100);
+    } else {
+      scheduleBlink(idx);
+    }
+  }, blinkDuration);
+}
+
+function startAllBlinks() {
+  AGENTS.forEach((_, i) => {
+    // Stagger initial blinks so they don't all sync
+    const initialDelay = 500 + Math.random() * 3000;
+    blinkTimers[i] = setTimeout(() => doBlink(i), initialDelay);
+  });
+}
+
+// ============================================
+// AUDIO — turn SFX + background music
+// ============================================
+const turnSfx = new Audio('sfx/turn.mp3');
+
+const MUSIC_TRACKS = [
+  'music/Friends.mp3',
+  'music/Trust.mp3',
+  'music/Happy.mp3',
+  'music/Waterfall.mp3'
+];
+
+let musicPlayer = null;
+let lastTrackIdx = -1;
+let fadeInterval = null;
+const MUSIC_MAX_VOL = 0.4;
+const FADE_DURATION = 2000; // 2s fade
+const FADE_STEP = 50; // ms per tick
+
+function fadeIn(audio) {
+  audio.volume = 0;
+  audio.play().catch(() => {});
+  const step = MUSIC_MAX_VOL / (FADE_DURATION / FADE_STEP);
+  const iv = setInterval(() => {
+    if (audio.volume + step >= MUSIC_MAX_VOL) {
+      audio.volume = MUSIC_MAX_VOL;
+      clearInterval(iv);
+    } else {
+      audio.volume = Math.min(audio.volume + step, MUSIC_MAX_VOL);
+    }
+  }, FADE_STEP);
+}
+
+function fadeOutThen(audio, callback) {
+  const step = audio.volume / (FADE_DURATION / FADE_STEP);
+  const iv = setInterval(() => {
+    if (audio.volume - step <= 0) {
+      audio.volume = 0;
+      audio.pause();
+      clearInterval(iv);
+      if (callback) callback();
+    } else {
+      audio.volume = Math.max(audio.volume - step, 0);
+    }
+  }, FADE_STEP);
+}
+
+function playRandomMusic() {
+  // Pick a random track different from the last one
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * MUSIC_TRACKS.length);
+  } while (idx === lastTrackIdx && MUSIC_TRACKS.length > 1);
+  lastTrackIdx = idx;
+
+  musicPlayer = new Audio(MUSIC_TRACKS[idx]);
+  // Start fade-out 2s before the track ends, then chain next track
+  musicPlayer.addEventListener('timeupdate', function() {
+    if (musicPlayer.duration && musicPlayer.currentTime >= musicPlayer.duration - (FADE_DURATION / 1000)) {
+      musicPlayer.removeEventListener('timeupdate', arguments.callee);
+      fadeOutThen(musicPlayer, playRandomMusic);
+    }
+  });
+  // Fallback: if ended fires before fade (short tracks), chain anyway
+  musicPlayer.addEventListener('ended', function() {
+    playRandomMusic();
+  }, { once: true });
+  fadeIn(musicPlayer);
+}
+
+// Browsers block autoplay until user interaction — start music on first click
+function initMusicOnInteraction() {
+  playRandomMusic();
+  document.removeEventListener('click', initMusicOnInteraction);
+}
+document.addEventListener('click', initMusicOnInteraction);
+
+// ============================================
+// INIT
+// ============================================
+preloadBlinkImages();
+initStage();
+renderAll(false);
+startAllBlinks();
+</script>
+
+</body>
+</html>
