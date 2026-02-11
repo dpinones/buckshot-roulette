@@ -358,9 +358,6 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
         liveShells={dLiveRemaining}
         blankShells={dBlankRemaining}
         spentShells={roundTotalShells - dShellsRemaining}
-        round={dCurrentRound}
-        maxHp={maxHp}
-        prize={state.prizePoolFormatted}
         shotAction={shotAction}
       />
 
@@ -408,8 +405,18 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
         />
       )}
 
-      {/* Volume control */}
-      <VolumeControl volume={volume} setVolume={setVolume} />
+      {/* Game info badges + Volume control */}
+      <div className="fixed bottom-5 right-5 z-[150] flex flex-col items-end gap-2">
+        <div className="flex items-center gap-2">
+          <div className="inline-flex items-center gap-2 bg-[rgba(80,30,80,0.75)] border-[2.5px] border-white/20 rounded-3xl px-4 py-1.5 font-display text-base text-white shadow-[0_3px_8px_rgba(0,0,0,0.12)]">
+            Round {dCurrentRound}
+          </div>
+          <div className="inline-flex items-center gap-2 bg-[rgba(255,215,0,0.9)] border-[2.5px] border-[#DAA520] rounded-3xl px-4 py-1.5 font-data text-base font-bold text-text-dark shadow-[0_3px_8px_rgba(0,0,0,0.12)]">
+            {'\u{1F3C6}'} {state.prizePoolFormatted} ETH
+          </div>
+        </div>
+        <VolumeControl volume={volume} setVolume={setVolume} />
+      </div>
     </div>
   )
 }

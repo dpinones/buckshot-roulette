@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { type Address } from 'viem'
 import { useAccount, useWriteContract } from 'wagmi'
 import { ADDRESSES, buckshotBettingAbi } from '../config/contracts'
@@ -24,6 +24,19 @@ export function GameOverOverlay({ winner, label, prize, players, names, onHome, 
   const isPending = localPending || wagmiPending
 
   const winnerChar = getCharacter(label)
+  const yaySfxRef = useRef<HTMLAudioElement | null>(null)
+
+  useEffect(() => {
+    yaySfxRef.current = new Audio('/sfx/yay.mp3')
+    yaySfxRef.current.volume = 0.6
+    yaySfxRef.current.play().catch(() => {})
+    return () => {
+      if (yaySfxRef.current) {
+        yaySfxRef.current.pause()
+        yaySfxRef.current = null
+      }
+    }
+  }, [])
 
   const losers = useMemo(() => {
     return players

@@ -4,13 +4,10 @@ interface TableAreaProps {
   liveShells: number
   blankShells: number
   spentShells: number
-  round: number
-  maxHp: number
-  prize: string
   shotAction: ShotAction
 }
 
-export function TableArea({ liveShells, blankShells, spentShells, round, maxHp, prize, shotAction }: TableAreaProps) {
+export function TableArea({ liveShells, blankShells, spentShells, shotAction }: TableAreaProps) {
   return (
     <div
       className="relative z-20 h-[33.34vh] shrink-0"
@@ -29,17 +26,17 @@ export function TableArea({ liveShells, blankShells, spentShells, round, maxHp, 
         borderRadius: '50% 50% 0 0 / 40px 40px 0 0',
       }}
     >
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center z-[21] w-[90%] max-w-[900px] h-full py-4 gap-[2vh]">
-        {/* Shotgun */}
-        <div className="flex items-center justify-center gap-6">
-          <img
-            src="/characters/shotgun.png"
-            alt="shotgun"
-            className="w-[min(50vw,450px)] h-auto drop-shadow-[4px_5px_6px_rgba(0,0,0,0.4)] -rotate-[5deg] transition-opacity duration-200"
-            style={{ opacity: shotAction ? 0 : 1 }}
-          />
-        </div>
+      {/* Shotgun — absolute so it doesn't push content down */}
+      <div className="absolute top-[2vh] left-1/2 -translate-x-1/2 z-[22] flex items-center justify-center">
+        <img
+          src="/characters/shotgun.png"
+          alt="shotgun"
+          className="w-[min(50vw,450px)] h-auto drop-shadow-[4px_5px_6px_rgba(0,0,0,0.4)] -rotate-[5deg] transition-opacity duration-200"
+          style={{ opacity: shotAction ? 0 : 1 }}
+        />
+      </div>
 
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center z-[21] w-[90%] max-w-[900px] h-full gap-[2vh]">
         {/* Shells display */}
         <div className="flex items-center gap-3">
           {/* Spent shells */}
@@ -84,36 +81,19 @@ export function TableArea({ liveShells, blankShells, spentShells, round, maxHp, 
 
         {/* Shell count badges */}
         <div className="flex items-center gap-2">
-          <div className="inline-flex items-center gap-1.5 bg-[rgba(180,30,30,0.8)] border-[2px] border-red-400/40 rounded-2xl px-3 py-1 font-display text-base text-white shadow-[0_2px_6px_rgba(0,0,0,0.15)]">
-            {liveShells} live
-          </div>
-          <div className="inline-flex items-center gap-1.5 bg-[rgba(120,120,120,0.8)] border-[2px] border-white/20 rounded-2xl px-3 py-1 font-display text-base text-white shadow-[0_2px_6px_rgba(0,0,0,0.15)]">
-            {blankShells} blank
-          </div>
           {spentShells > 0 && (
             <div className="inline-flex items-center gap-1.5 bg-black/20 border-[2px] border-black/10 rounded-2xl px-3 py-1 font-display text-sm text-white/70">
               {spentShells} spent
             </div>
           )}
-        </div>
-
-        {/* Badges */}
-        <div className="flex items-center justify-center gap-2.5">
-          {/* Round badge */}
-          <div className="inline-flex items-center gap-2 bg-[rgba(80,30,80,0.75)] border-[2.5px] border-white/20 rounded-3xl px-5 py-2 font-display text-xl text-white shadow-[0_3px_8px_rgba(0,0,0,0.12)]">
-            Round {round}
+          <div className="inline-flex items-center gap-1.5 bg-[rgba(180,30,30,0.8)] border-[2px] border-red-400/40 rounded-2xl px-3 py-1 font-display text-base text-white shadow-[0_2px_6px_rgba(0,0,0,0.15)]">
+            {liveShells} live
           </div>
-
-          {/* Max HP badge */}
-          <div className="inline-flex items-center gap-2 bg-white/88 border-[2.5px] border-black/15 rounded-3xl px-5 py-2 font-data text-lg font-bold text-text-dark shadow-[0_3px_8px_rgba(0,0,0,0.12)]">
-            <span className="text-xl">{'\u2665'}</span> {maxHp} HP Max
-          </div>
-
-          {/* Prize badge */}
-          <div className="inline-flex items-center gap-2 bg-[rgba(255,215,0,0.9)] border-[2.5px] border-[#DAA520] rounded-3xl px-5 py-2 font-data text-lg font-bold text-text-dark shadow-[0_3px_8px_rgba(0,0,0,0.12)]">
-            <span className="text-xl">{'\u{1F3C6}'}</span> {prize} ETH
+          <div className="inline-flex items-center gap-1.5 bg-[rgba(46,149,251,0.85)] border-[2px] border-[#5bb0ff]/40 rounded-2xl px-3 py-1 font-display text-base text-white shadow-[0_2px_6px_rgba(0,0,0,0.15)]">
+            {blankShells} blank
           </div>
         </div>
+
       </div>
     </div>
     </div>

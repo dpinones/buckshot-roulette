@@ -20,7 +20,7 @@ export function VolumeControl({ volume, setVolume }: VolumeControlProps) {
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-[150] flex items-center gap-3 bg-paper/90 backdrop-blur-sm border-[2.5px] border-paper-shadow rounded-[16px] px-4 py-2.5 shadow-[0_3px_10px_rgba(0,0,0,0.12)] select-none">
+    <div className="flex items-center gap-3 bg-paper/90 backdrop-blur-sm border-[2.5px] border-paper-shadow rounded-[16px] px-4 py-2.5 shadow-[0_3px_10px_rgba(0,0,0,0.12)] select-none">
       {/* Mute / unmute */}
       <button
         onClick={toggleMute}
