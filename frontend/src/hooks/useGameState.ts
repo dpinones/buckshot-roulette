@@ -33,6 +33,7 @@ export function useGameState(gameId: bigint, pollInterval = 2000) {
   const [error, setError] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
   const stateRef = useRef<GameState | null>(null)
+  const lastPrizePoolRef = useRef<bigint>(0n)
 
   useEffect(() => {
     let active = true
@@ -40,6 +41,7 @@ export function useGameState(gameId: bigint, pollInterval = 2000) {
     setState(null)
     setPrevState(null)
     stateRef.current = null
+    lastPrizePoolRef.current = 0n
 
     async function fetchState() {
       try {
@@ -79,6 +81,15 @@ export function useGameState(gameId: bigint, pollInterval = 2000) {
           playerItems[p.toLowerCase()] = itemResults[i]
         })
 
+        // The contract zeroes prizePool in the same tx that sets the winner,
+        // so keep the last non-zero value for the game-over overlay.
+        if (gameView.prizePool > 0n) {
+          lastPrizePoolRef.current = gameView.prizePool
+        }
+        const displayPrizePool = gameView.prizePool > 0n
+          ? gameView.prizePool
+          : lastPrizePoolRef.current
+
         const newState: GameState = {
           id: gameView.id,
           players: gameView.players,
@@ -92,8 +103,8 @@ export function useGameState(gameId: bigint, pollInterval = 2000) {
           turnDeadline: gameView.turnDeadline,
           phase: gameView.phase,
           winner: gameView.winner,
-          prizePool: gameView.prizePool,
-          prizePoolFormatted: formatEther(gameView.prizePool),
+          prizePool: displayPrizePool,
+          prizePoolFormatted: formatEther(displayPrizePool),
           currentTurn,
           playerItems,
         }
