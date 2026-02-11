@@ -254,9 +254,9 @@ if [ "$GAME_CREATED" != "true" ]; then
   exit 1
 fi
 
-# Advance past the 120s betting window and activate the game
-echo "  Avanzando 121s (betting window)..."
-cast rpc evm_increaseTime 121 --rpc-url "$RPC" > /dev/null 2>&1
+# Advance past the 20s betting window and activate the game
+echo "  Avanzando 21s (betting window)..."
+cast rpc evm_increaseTime 21 --rpc-url "$RPC" > /dev/null 2>&1
 cast rpc evm_mine --rpc-url "$RPC" > /dev/null 2>&1
 ACTIVATE_RESULT=$(cast_send "$PK1" "activateGame(uint256)" $GAME_ID)
 if ! tx_succeeded "$ACTIVATE_RESULT"; then

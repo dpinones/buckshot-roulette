@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { type Address, parseEther, formatEther } from 'viem'
 import { useAccount } from 'wagmi'
 import { type GameState } from '../hooks/useGameState'
-import { useBetting } from '../hooks/useBetting'
+import { useBetting, type DecodedBet } from '../hooks/useBetting'
 import { usePlayerNames } from '../hooks/usePlayerNames'
 import { getCharacter } from '../config/characters'
 
@@ -44,18 +44,6 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
   const [betYes, setBetYes] = useState(true)
 
   const players = state.players
-  const autoActivatedRef = useRef(false)
-
-  // Auto-activate game when betting window closes (local dev convenience)
-  useEffect(() => {
-    if (betting.timeLeft === 0 && wallet && !betting.isActivating && !autoActivatedRef.current) {
-      autoActivatedRef.current = true
-      betting.activateGame()
-    }
-    if (betting.timeLeft > 0) {
-      autoActivatedRef.current = false
-    }
-  }, [betting.timeLeft, wallet, betting.isActivating, betting.activateGame])
 
   function getOnChainName(addr: Address): string {
     return names[addr.toLowerCase()] || ''
@@ -124,19 +112,8 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
             </div>
             <CountdownTimer timeLeft={betting.timeLeft} />
             {betting.timeLeft === 0 && (
-              <div className="space-y-2">
-                <div className="font-data text-sm text-text-light">
-                  Betting window closed
-                </div>
-                {wallet && (
-                  <button
-                    onClick={betting.activateGame}
-                    disabled={betting.isActivating}
-                    className="font-display text-sm text-text-dark px-5 py-2 bg-gold/30 border-2 border-gold hover:bg-gold/50 rounded-[10px] cursor-pointer transition-colors disabled:opacity-30"
-                  >
-                    {betting.isActivating ? 'Activating...' : 'Start Game'}
-                  </button>
-                )}
+              <div className="font-data text-sm text-text-light animate-pulse">
+                Waiting for game to start...
               </div>
             )}
           </div>
@@ -361,11 +338,29 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
               <div className="font-display text-sm text-text-dark mb-3">
                 My Bets ({myBetsCount})
               </div>
-              <div className="space-y-1">
-                {betting.state?.myBets?.amounts.map((amount, i) => (
-                  <div key={i} className="flex items-center justify-between font-data text-sm">
-                    <span className="text-text-light">Bet #{i + 1}</span>
-                    <span className="text-gold font-bold">{formatEther(amount)} ETH</span>
+              <div className="space-y-2">
+                {betting.decodedBets.map((bet, i) => (
+                  <div key={i} className="flex items-center justify-between font-data text-sm bg-meadow/50 rounded-[8px] px-3 py-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-display px-1.5 py-0.5 rounded ${
+                        bet.type === 'winner' ? 'bg-gold/20 text-text-dark' :
+                        bet.type === 'first_death' ? 'bg-blood/15 text-blood' :
+                        'bg-alive/15 text-alive'
+                      }`}>
+                        {bet.type === 'winner' ? 'WINNER' :
+                         bet.type === 'first_death' ? `DEATH #${bet.position}` :
+                         `>=${bet.threshold} KILLS`}
+                      </span>
+                      <span className="text-text-dark">
+                        {bet.player ? getLabel(bet.player) : '?'}
+                        {bet.type === 'over_kills' && (
+                          <span className={bet.betYes ? 'text-alive' : 'text-blood'}>
+                            {' '}{bet.betYes ? 'YES' : 'NO'}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <span className="text-gold font-bold">{formatEther(bet.amount)} ETH</span>
                   </div>
                 ))}
               </div>

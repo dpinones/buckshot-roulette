@@ -40,7 +40,7 @@ install:
 # ── Local Devnet ────────────────────────────────────────────
 
 anvil:
-	anvil
+	anvil --block-time 1
 
 deploy-local:
 	FOUNDRY_CHAIN_ID=31337 forge script script/Deploy.s.sol \

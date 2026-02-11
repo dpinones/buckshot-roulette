@@ -68,7 +68,7 @@ contract BuckshotGame {
     mapping(uint256 => mapping(address => bool)) public currentShellKnown;
     mapping(uint256 => mapping(address => uint8)) public knownShellValue;
 
-    uint256 public constant BETTING_WINDOW = 120 seconds;
+    uint256 public constant BETTING_WINDOW = 20 seconds;
     mapping(uint256 => uint256) public bettingDeadline;
     mapping(uint256 => mapping(address => uint8)) public deathOrder;
     mapping(uint256 => uint8) public deathCount;

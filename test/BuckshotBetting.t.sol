@@ -69,7 +69,7 @@ contract BuckshotBettingTest is Test {
     }
 
     function _activateGame(uint256 gameId) internal {
-        vm.warp(block.timestamp + 121);
+        vm.warp(block.timestamp + 21);
         game.activateGame(gameId);
     }
 
@@ -116,7 +116,7 @@ contract BuckshotBettingTest is Test {
 
     function test_activateGame_after_deadline() public {
         uint256 gameId = _createGameInWaiting2P();
-        vm.warp(block.timestamp + 121);
+        vm.warp(block.timestamp + 21);
         game.activateGame(gameId);
 
         BuckshotGame.GameView memory state = game.getGameState(gameId);
@@ -190,7 +190,7 @@ contract BuckshotBettingTest is Test {
 
     function test_placeBet_reverts_after_deadline() public {
         uint256 gameId = _createGameInWaiting2P();
-        vm.warp(block.timestamp + 121);
+        vm.warp(block.timestamp + 21);
 
         vm.prank(bettor1);
         vm.expectRevert(BuckshotBetting.BettingWindowExpired.selector);
