@@ -15,6 +15,7 @@ import { GameOverOverlay } from './GameOverOverlay'
 import { PlayerStatsModal } from './PlayerStatsModal'
 import { ReadyGoOverlay } from './ReadyGoOverlay'
 import { VolumeControl } from './VolumeControl'
+import { ItemUseOverlay } from './ItemUseOverlay'
 
 export type ShotAction = {
   phase: 'prepare' | 'fire'
@@ -49,6 +50,8 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
   const [roundTotalShells, setRoundTotalShells] = useState(state.shellsRemaining)
   const [flashTurnIdx, setFlashTurnIdx] = useState(state.currentTurnIndex)
   const [showGameOver, setShowGameOver] = useState(false)
+  const [activeItem, setActiveItem] = useState<number | null>(null)
+  const itemKeyRef = useRef(0)
   const players = state.players
   const names = usePlayerNames(players)
   const { playTurnSfx, playShotSfx, playBlankSfx, playPrepareSfx, playReloadSfx, volume, setVolume } = useAudio()
@@ -131,6 +134,37 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
       return () => clearTimeout(timer)
     }
   }, [state.shellsRemaining, state.playerItems, showReadyGo])
+
+  // Item use detection: find which item was consumed between prevState and state
+  useEffect(() => {
+    if (showReadyGo) return
+    if (!prevState) return
+    if (shotJustHappened) return // don't show item overlay during shot animations
+
+    const currentPlayer = players[prevState.currentTurnIndex]
+    if (!currentPlayer) return
+
+    const key = currentPlayer.toLowerCase()
+    const prevItems = prevState.playerItems[key] ?? []
+    const currItems = state.playerItems[key] ?? []
+
+    if (currItems.length >= prevItems.length) return // no item consumed
+
+    // Find which item type was removed
+    const remaining = [...currItems]
+    for (const item of prevItems) {
+      const idx = remaining.indexOf(item)
+      if (idx >= 0) {
+        remaining.splice(idx, 1)
+      } else {
+        // This item was consumed
+        console.log('[ITEM USE]', { item, player: currentPlayer })
+        itemKeyRef.current++
+        setActiveItem(item)
+        return
+      }
+    }
+  }, [state.playerItems, prevState, showReadyGo, shotJustHappened])
 
   // Shot detection: shells decreased, round changed (reload after last shell), or game ended
   useEffect(() => {
@@ -364,6 +398,15 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
 
       {/* Ready / Go intro */}
       {showReadyGo && <ReadyGoOverlay onDone={() => setShowReadyGo(false)} />}
+
+      {/* Item use overlay */}
+      {activeItem !== null && (
+        <ItemUseOverlay
+          key={itemKeyRef.current}
+          itemType={activeItem}
+          onDone={() => setActiveItem(null)}
+        />
+      )}
 
       {/* Volume control */}
       <VolumeControl volume={volume} setVolume={setVolume} />

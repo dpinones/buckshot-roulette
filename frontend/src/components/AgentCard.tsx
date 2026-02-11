@@ -1,5 +1,12 @@
 import { type Address } from 'viem'
-import { ITEM_ICONS, ITEM_NAMES } from '../config/contracts'
+import { ITEM_NAMES } from '../config/contracts'
+
+const ITEM_IMGS: Record<number, string> = {
+  1: '/characters/MAGNIFYING_GLASS.png',
+  2: '/characters/beer.png',
+  3: '/characters/handsaw.png',
+  4: '/characters/cigarette.png',
+}
 import { getCharacter } from '../config/characters'
 
 interface AgentCardProps {
@@ -99,10 +106,12 @@ export function AgentCard({
           {items.map((item, i) => (
             <span
               key={i}
-              className="w-[32px] h-[32px] bg-white/70 border border-black/20 rounded-lg flex items-center justify-center text-base"
+              className="w-[32px] h-[32px] bg-white/70 border border-black/20 rounded-lg flex items-center justify-center overflow-hidden"
               title={ITEM_NAMES[item] ?? 'Unknown'}
             >
-              {ITEM_ICONS[item] ?? '?'}
+              {ITEM_IMGS[item]
+                ? <img src={ITEM_IMGS[item]} alt={ITEM_NAMES[item] ?? ''} className="w-[26px] h-[26px] object-contain" />
+                : '?'}
             </span>
           ))}
         </div>
