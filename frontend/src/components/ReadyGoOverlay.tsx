@@ -17,6 +17,7 @@ export function ReadyGoOverlay({ onDone }: ReadyGoOverlayProps) {
   useEffect(() => {
     const sfx = READY_SFXS[Math.floor(Math.random() * READY_SFXS.length)]
     audioRef.current = new Audio(sfx)
+    audioRef.current.volume = 0.1
     audioRef.current.play().catch(() => {})
 
     const t1 = setTimeout(() => setPhase('go'), 1200)

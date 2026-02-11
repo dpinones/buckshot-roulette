@@ -34,7 +34,7 @@ export function AgentCard({
     <div
       onClick={onClick}
       className={`
-        relative flex-1 max-w-[180px] min-w-0 rounded-[14px] p-2.5 flex flex-col gap-1
+        relative flex-1 max-w-[240px] min-w-0 rounded-[16px] p-3.5 flex flex-col gap-1.5
         transition-all duration-400 select-none
         ${isDead
           ? 'bg-[rgba(200,200,200,0.85)] border-3 border-[#999] grayscale-[0.7] shadow-[0_2px_6px_rgba(0,0,0,0.12)]'
@@ -50,30 +50,30 @@ export function AgentCard({
     >
       {/* TURN badge */}
       {isCurrentTurn && isAlive && (
-        <span className="absolute -top-2.5 -right-2.5 bg-gold text-text-dark font-display text-[11px] px-2.5 py-0.5 rounded-xl border-2 border-[#DAA520] shadow-[0_3px_6px_rgba(0,0,0,0.25)] z-10">
+        <span className="absolute -top-3 -right-3 bg-gold text-text-dark font-display text-sm px-3 py-1 rounded-xl border-2 border-[#DAA520] shadow-[0_3px_6px_rgba(0,0,0,0.25)] z-10">
           TURN
         </span>
       )}
 
       {/* NEXT badge */}
       {isNext && isAlive && !isCurrentTurn && (
-        <span className="absolute -top-2.5 -right-2.5 bg-[#FFE082] text-text-dark font-display text-[10px] px-2 py-0.5 rounded-xl border-2 border-[#F9A825] shadow-[0_2px_5px_rgba(0,0,0,0.2)] z-10">
+        <span className="absolute -top-3 -right-3 bg-[#FFE082] text-text-dark font-display text-[13px] px-2.5 py-0.5 rounded-xl border-2 border-[#F9A825] shadow-[0_2px_5px_rgba(0,0,0,0.2)] z-10">
           NEXT
         </span>
       )}
 
       {/* Header: avatar + name */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-3">
         <img
           src={char.img}
           alt={char.name}
-          className={`w-14 h-14 rounded-[10px] object-contain bg-white/50 p-0.5 ${isDead ? 'grayscale opacity-50' : ''}`}
+          className={`w-18 h-18 rounded-[12px] object-contain bg-white/50 p-0.5 ${isDead ? 'grayscale opacity-50' : ''}`}
         />
         <div className="flex-1 min-w-0">
-          <div className={`font-display text-sm leading-tight truncate ${isDead ? 'text-[#888]' : 'text-text-dark'}`}>
+          <div className={`font-display text-base leading-tight truncate ${isDead ? 'text-[#888]' : 'text-text-dark'}`}>
             {char.name}
           </div>
-          <div className="font-data text-[11px] text-text-light">
+          <div className="font-data text-sm text-text-light">
             {char.role}
           </div>
         </div>
@@ -81,11 +81,11 @@ export function AgentCard({
 
       {/* Hearts */}
       {isAlive && (
-        <div className="flex gap-1 mt-1">
+        <div className="flex gap-1.5 mt-1">
           {Array.from({ length: maxHp }, (_, i) => (
             <span
               key={i}
-              className={`text-base leading-none ${i < hp ? 'text-heart-full' : 'text-heart-empty'}`}
+              className={`text-lg leading-none ${i < hp ? 'text-heart-full' : 'text-heart-empty'}`}
             >
               {'\u2665'}
             </span>
@@ -95,11 +95,11 @@ export function AgentCard({
 
       {/* Items */}
       {isAlive && items.length > 0 && (
-        <div className="flex gap-1 flex-wrap mt-0.5">
+        <div className="flex gap-1.5 flex-wrap mt-0.5">
           {items.map((item, i) => (
             <span
               key={i}
-              className="w-[26px] h-[26px] bg-white/70 border border-black/20 rounded-md flex items-center justify-center text-sm"
+              className="w-[32px] h-[32px] bg-white/70 border border-black/20 rounded-lg flex items-center justify-center text-base"
               title={ITEM_NAMES[item] ?? 'Unknown'}
             >
               {ITEM_ICONS[item] ?? '?'}
@@ -110,7 +110,7 @@ export function AgentCard({
 
       {/* ELIMINATED label */}
       {isDead && (
-        <div className="font-display text-[13px] text-[#999] text-center mt-1">
+        <div className="font-display text-base text-[#999] text-center mt-1">
           ELIMINATED
         </div>
       )}

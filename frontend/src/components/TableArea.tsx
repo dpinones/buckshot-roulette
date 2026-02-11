@@ -16,7 +16,7 @@ export function TableArea({ liveShells, blankShells, spentShells, round, maxHp, 
       className="relative z-20 h-[33.34vh] shrink-0 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]"
       style={{
         background: 'linear-gradient(180deg, var(--color-table-pink) 0%, #D9A0C8 100%)',
-        borderTop: '5px solid var(--color-table-border)',
+        borderTop: '10px solid var(--color-table-border)',
         borderRadius: '50% 50% 0 0 / 40px 40px 0 0',
       }}
     >

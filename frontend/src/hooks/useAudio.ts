@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 const MUSIC_TRACKS = [
   '/music/Friends.mp3',
@@ -10,17 +10,26 @@ const MUSIC_TRACKS = [
 const MUSIC_MAX_VOL = 0.4
 const FADE_DURATION = 2000
 const FADE_STEP = 50
+const VOLUME_KEY = 'buckshot-volume'
 
-function fadeIn(audio: HTMLAudioElement) {
+function getStoredVolume(): number {
+  try {
+    const v = localStorage.getItem(VOLUME_KEY)
+    if (v !== null) return Math.max(0, Math.min(1, parseFloat(v)))
+  } catch {}
+  return 0.3
+}
+
+function fadeIn(audio: HTMLAudioElement, maxVol: number) {
   audio.volume = 0
   audio.play().catch(() => {})
-  const step = MUSIC_MAX_VOL / (FADE_DURATION / FADE_STEP)
+  const step = maxVol / (FADE_DURATION / FADE_STEP)
   const iv = setInterval(() => {
-    if (audio.volume + step >= MUSIC_MAX_VOL) {
-      audio.volume = MUSIC_MAX_VOL
+    if (audio.volume + step >= maxVol) {
+      audio.volume = maxVol
       clearInterval(iv)
     } else {
-      audio.volume = Math.min(audio.volume + step, MUSIC_MAX_VOL)
+      audio.volume = Math.min(audio.volume + step, maxVol)
     }
   }, FADE_STEP)
 }
@@ -49,6 +58,23 @@ export function useAudio() {
   const shotReloadSfxRef = useRef<HTMLAudioElement | null>(null)
   const startedRef = useRef(false)
 
+  // Master volume: 0–1, persisted in localStorage
+  const [volume, setVolumeState] = useState(getStoredVolume)
+  const volumeRef = useRef(volume)
+
+  const setVolume = useCallback((v: number) => {
+    const clamped = Math.max(0, Math.min(1, Math.round(v * 20) / 20)) // snap to 5% steps
+    volumeRef.current = clamped
+    setVolumeState(clamped)
+    try { localStorage.setItem(VOLUME_KEY, String(clamped)) } catch {}
+    // Update currently playing music immediately
+    if (musicRef.current && !musicRef.current.paused) {
+      musicRef.current.volume = MUSIC_MAX_VOL * clamped
+    }
+  }, [])
+
+  const effectiveMusicVol = () => MUSIC_MAX_VOL * volumeRef.current
+
   const playRandomMusic = useCallback(() => {
     let idx: number
     do {
@@ -66,7 +92,7 @@ export function useAudio() {
       }
     })
 
-    fadeIn(player)
+    fadeIn(player, effectiveMusicVol())
   }, [])
 
   useEffect(() => {
@@ -82,14 +108,12 @@ export function useAudio() {
       playRandomMusic()
     }
 
-    // Try to play immediately — if browser allows it, great
     const probe = new Audio(MUSIC_TRACKS[0])
     probe.volume = 0
     probe.play().then(() => {
       probe.pause()
       startMusic()
     }).catch(() => {
-      // Autoplay blocked — fall back to click listener
       function handleClick() {
         startMusic()
         document.removeEventListener('click', handleClick)
@@ -105,40 +129,22 @@ export function useAudio() {
     }
   }, [playRandomMusic])
 
-  const playTurnSfx = useCallback(() => {
-    if (turnSfxRef.current) {
-      turnSfxRef.current.currentTime = 0
-      turnSfxRef.current.play().catch(() => {})
+  function playSfx(ref: React.RefObject<HTMLAudioElement | null>) {
+    if (ref.current) {
+      ref.current.volume = volumeRef.current
+      ref.current.currentTime = 0
+      ref.current.play().catch(() => {})
     }
-  }, [])
+  }
 
-  const playShotSfx = useCallback(() => {
-    if (shotConfettiSfxRef.current) {
-      shotConfettiSfxRef.current.currentTime = 0
-      shotConfettiSfxRef.current.play().catch(() => {})
-    }
-  }, [])
+  const playTurnSfx = useCallback(() => playSfx(turnSfxRef), [])
+  const playShotSfx = useCallback(() => playSfx(shotConfettiSfxRef), [])
+  const playPrepareSfx = useCallback(() => playSfx(shotPrepareSfxRef), [])
+  const playBlankSfx = useCallback(() => playSfx(shotBlankSfxRef), [])
+  const playReloadSfx = useCallback(() => playSfx(shotReloadSfxRef), [])
 
-  const playPrepareSfx = useCallback(() => {
-    if (shotPrepareSfxRef.current) {
-      shotPrepareSfxRef.current.currentTime = 0
-      shotPrepareSfxRef.current.play().catch(() => {})
-    }
-  }, [])
-
-  const playBlankSfx = useCallback(() => {
-    if (shotBlankSfxRef.current) {
-      shotBlankSfxRef.current.currentTime = 0
-      shotBlankSfxRef.current.play().catch(() => {})
-    }
-  }, [])
-
-  const playReloadSfx = useCallback(() => {
-    if (shotReloadSfxRef.current) {
-      shotReloadSfxRef.current.currentTime = 0
-      shotReloadSfxRef.current.play().catch(() => {})
-    }
-  }, [])
-
-  return { playTurnSfx, playShotSfx, playBlankSfx, playPrepareSfx, playReloadSfx }
+  return {
+    playTurnSfx, playShotSfx, playBlankSfx, playPrepareSfx, playReloadSfx,
+    volume, setVolume,
+  }
 }
