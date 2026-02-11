@@ -34,7 +34,7 @@ export function EventLogNotebook({ events }: EventLogNotebookProps) {
       {/* Entries */}
       <div
         ref={scrollRef}
-        className="py-2 px-3 pl-9 overflow-y-auto"
+        className="pt-0 pb-2 px-3 pl-9 overflow-y-auto"
         style={{
           height: 'calc(100% - 42px)',
           background: 'repeating-linear-gradient(transparent, transparent 23px, #E8D9A0 23px, #E8D9A0 24px)',
@@ -57,7 +57,11 @@ export function EventLogNotebook({ events }: EventLogNotebookProps) {
                 minute: '2-digit',
               })}
             </span>
-            {event.message}
+            {event.segments.map((s, j) => (
+              <span key={j} style={s.color === 'bold' ? { fontWeight: 700 } : undefined}>
+                {s.text}
+              </span>
+            ))}
           </div>
         ))}
       </div>

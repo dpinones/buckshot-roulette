@@ -4,28 +4,46 @@ import { type GameState } from './useGameState'
 import { ITEM_NAMES, Phase } from '../config/contracts'
 import { getCharacter } from '../config/characters'
 
+export type MessageSegment = { text: string; color?: string }
+
 export interface GameEvent {
   id: number
   type: 'shot' | 'item' | 'round' | 'turn' | 'gameover' | 'info'
-  message: string
+  segments: MessageSegment[]
   timestamp: number
 }
 
-function shortAddr(addr: Address): string {
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+const FRIENDLY_ITEM_NAMES: Record<number, string> = {
+  1: 'Magnifying Glass',
+  2: 'Beer',
+  3: 'Handsaw',
+  4: 'Cigarettes',
+  5: 'Handcuffs',
+  6: 'Inverter',
 }
 
-function playerLabel(
+function friendlyItemName(itemType: number): string {
+  return FRIENDLY_ITEM_NAMES[itemType] ?? ITEM_NAMES[itemType] ?? 'Unknown'
+}
+
+function playerSegment(
   addr: Address,
   players: readonly Address[],
   names?: Record<string, string>
-): string {
+): MessageSegment {
   const name = names?.[addr.toLowerCase()] || ''
+  const char = getCharacter(name)
   const idx = players.findIndex(
     (p) => p.toLowerCase() === addr.toLowerCase()
   )
-  if (idx >= 0) return getCharacter(name).name
-  return shortAddr(addr)
+  if (idx >= 0) {
+    return { text: char.name, color: 'bold' }
+  }
+  return { text: `${addr.slice(0, 6)}...${addr.slice(-4)}` }
+}
+
+function seg(text: string): MessageSegment {
+  return { text }
 }
 
 export function useEventLog(
@@ -36,10 +54,10 @@ export function useEventLog(
   const [events, setEvents] = useState<GameEvent[]>([])
   const nextId = useRef(0)
 
-  const addEvent = (type: GameEvent['type'], message: string) => {
+  const addEvent = (type: GameEvent['type'], segments: MessageSegment[]) => {
     setEvents((prev) => [
       ...prev,
-      { id: nextId.current++, type, message, timestamp: Date.now() },
+      { id: nextId.current++, type, segments, timestamp: Date.now() },
     ])
   }
 
@@ -51,8 +69,11 @@ export function useEventLog(
 
     // Round change
     if (state.currentRound !== prevState.currentRound && state.currentRound > 0) {
-      addEvent('round', `Round ${state.currentRound}`)
+      addEvent('round', [seg(`Round ${state.currentRound}`)])
     }
+
+    // Detect shooter from prevState.currentTurn
+    const shooterAddr = prevState.currentTurn
 
     // HP changes (damage)
     for (let i = 0; i < players.length; i++) {
@@ -60,16 +81,32 @@ export function useEventLog(
       const currHp = state.hpList[i] ?? 0
       if (currHp < prevHp) {
         const dmg = prevHp - currHp
-        addEvent(
-          'shot',
-          `BANG! ${playerLabel(players[i], players, names)} took ${dmg} damage (${prevHp} -> ${currHp} HP)`
-        )
+        const targetAddr = players[i]
+        const isSelf = shooterAddr.toLowerCase() === targetAddr.toLowerCase()
+        const shooterSeg = playerSegment(shooterAddr, players, names)
+        const dmgStr = dmg > 1 ? `${dmg} damage` : '1 damage'
+
+        if (isSelf) {
+          addEvent('shot', [
+            shooterSeg,
+            seg(` shot themselves — ${dmgStr}! \u{1F4A5}`),
+          ])
+        } else {
+          const targetSeg = playerSegment(targetAddr, players, names)
+          addEvent('shot', [
+            shooterSeg,
+            seg(' shot '),
+            targetSeg,
+            seg(` — ${dmgStr}! \u{1F4A5}`),
+          ])
+        }
       }
       if (currHp > prevHp && state.currentRound === prevState.currentRound) {
-        addEvent(
-          'item',
-          `${playerLabel(players[i], players, names)} healed +${currHp - prevHp} HP`
-        )
+        const healSeg = playerSegment(players[i], players, names)
+        addEvent('item', [
+          healSeg,
+          seg(` healed +${currHp - prevHp} HP`),
+        ])
       }
     }
 
@@ -79,7 +116,6 @@ export function useEventLog(
       const prevItems = prevState.playerItems[key] ?? []
       const currItems = state.playerItems[key] ?? []
       if (currItems.length < prevItems.length) {
-        // Find which item was used (diff)
         const prevCounts: Record<number, number> = {}
         const currCounts: Record<number, number> = {}
         for (const item of prevItems) prevCounts[item] = (prevCounts[item] ?? 0) + 1
@@ -88,10 +124,11 @@ export function useEventLog(
           const itemNum = Number(itemStr)
           const diff = count - (currCounts[itemNum] ?? 0)
           if (diff > 0 && itemNum > 0) {
-            addEvent(
-              'item',
-              `${playerLabel(player, players, names)} used ${ITEM_NAMES[itemNum]}`
-            )
+            const pSeg = playerSegment(player, players, names)
+            addEvent('item', [
+              pSeg,
+              seg(` used ${friendlyItemName(itemNum)}`),
+            ])
           }
         }
       }
@@ -107,31 +144,47 @@ export function useEventLog(
         (_, i) => (state.hpList[i] ?? 0) < (prevState.hpList[i] ?? 0)
       )
       if (!anyDmg) {
-        addEvent('shot', '*click* Blank...')
+        const shooterSeg = playerSegment(shooterAddr, players, names)
+        const turnChanged = state.currentTurn.toLowerCase() !== prevState.currentTurn.toLowerCase()
+        if (turnChanged) {
+          // Opponent blank — target is the next player (state.currentTurn)
+          const targetSeg = playerSegment(state.currentTurn, players, names)
+          addEvent('shot', [
+            shooterSeg,
+            seg(' shot '),
+            targetSeg,
+            seg(' — *click* blank'),
+          ])
+        } else {
+          // Self blank — extra turn
+          addEvent('shot', [
+            shooterSeg,
+            seg(' shot themselves — *click* blank, extra turn!'),
+          ])
+        }
       }
     }
 
-    // Turn change
-    if (
-      state.currentTurn !== prevState.currentTurn &&
-      state.phase === Phase.ACTIVE
-    ) {
-      addEvent(
-        'turn',
-        `${playerLabel(state.currentTurn, players, names)}'s turn`
-      )
-    }
+    // Turn change — disabled, redundant with agent card highlight
+    // if (
+    //   state.currentTurn !== prevState.currentTurn &&
+    //   state.phase === Phase.ACTIVE
+    // ) {
+    //   const turnSeg = playerSegment(state.currentTurn, players, names)
+    //   addEvent('turn', [turnSeg, seg("'s turn")])
+    // }
 
     // Game over
     if (
       state.phase === Phase.FINISHED &&
       prevState.phase !== Phase.FINISHED
     ) {
-      const winnerLabel = playerLabel(state.winner, players, names)
-      addEvent(
-        'gameover',
-        `GAME OVER! ${winnerLabel} wins! Prize: ${state.prizePoolFormatted} ETH`
-      )
+      const winnerSeg = playerSegment(state.winner, players, names)
+      addEvent('gameover', [
+        seg('GAME OVER! '),
+        winnerSeg,
+        seg(` wins! Prize: ${state.prizePoolFormatted} ETH`),
+      ])
     }
   }, [state, prevState])
 

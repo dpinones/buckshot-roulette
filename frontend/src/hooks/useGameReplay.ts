@@ -1,13 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { type Address, formatEther } from 'viem'
-import { ADDRESSES, buckshotGameEventAbi, ITEM_NAMES, playerProfileAbi } from '../config/contracts'
+import { ADDRESSES, buckshotGameEventAbi, playerProfileAbi } from '../config/contracts'
 import { client } from './useGameState'
 import { getCharacter } from '../config/characters'
+import { type MessageSegment } from './useEventLog'
+
+const FRIENDLY_ITEM_NAMES: Record<number, string> = {
+  1: 'Magnifying Glass',
+  2: 'Beer',
+  3: 'Handsaw',
+  4: 'Cigarettes',
+  5: 'Handcuffs',
+  6: 'Inverter',
+}
 
 export interface ReplayEvent {
   id: number
   type: 'game_created' | 'round_start' | 'shells_loaded' | 'turn' | 'shot' | 'item' | 'shell_ejected' | 'eliminated' | 'round_end' | 'game_end'
   message: string
+  segments: MessageSegment[]
   icon: string
   // State snapshot after this event
   state: ReplayState
@@ -31,6 +42,20 @@ function label(addr: Address, players: Address[], nameMap: Record<string, string
   if (name) return getCharacter(name).name
   const idx = players.findIndex((p) => p.toLowerCase() === addr.toLowerCase())
   return idx >= 0 ? getCharacter('').name : `${addr.slice(0, 6)}...${addr.slice(-4)}`
+}
+
+function playerSeg(addr: Address, players: Address[], nameMap: Record<string, string>): MessageSegment {
+  const name = nameMap[addr.toLowerCase()]
+  const char = getCharacter(name || '')
+  const idx = players.findIndex((p) => p.toLowerCase() === addr.toLowerCase())
+  if (idx >= 0) {
+    return { text: char.name, color: 'bold' }
+  }
+  return { text: `${addr.slice(0, 6)}...${addr.slice(-4)}` }
+}
+
+function seg(text: string): MessageSegment {
+  return { text }
 }
 
 function cloneState(s: ReplayState): ReplayState {
@@ -131,6 +156,7 @@ export function useGameReplay(gameId: bigint) {
               id: nextId++,
               type: 'game_created',
               message: `Game created with ${players.length} players (${buyIn} ETH buy-in)`,
+              segments: [seg(`Game created with ${players.length} players (${buyIn} ETH buy-in)`)],
               icon: '\u{1F3AE}',
               state: cloneState(state),
             })
@@ -142,6 +168,7 @@ export function useGameReplay(gameId: bigint) {
               id: nextId++,
               type: 'round_start',
               message: `Round ${round} started`,
+              segments: [seg(`Round ${round} started`)],
               icon: '\u{1F3AF}',
               state: cloneState(state),
             })
@@ -152,16 +179,19 @@ export function useGameReplay(gameId: bigint) {
               id: nextId++,
               type: 'shells_loaded',
               message: `Shells loaded: ${state.liveShells} live, ${state.blankShells} blank`,
+              segments: [seg(`Shells loaded: ${state.liveShells} live, ${state.blankShells} blank`)],
               icon: '\u{1F4A3}',
               state: cloneState(state),
             })
           } else if (name === 'TurnStarted') {
             const player = args.player as Address
             state.currentTurn = player
+            const pSeg = playerSeg(player, state.players, nameMap)
             replayEvents.push({
               id: nextId++,
               type: 'turn',
               message: `${label(player, state.players, nameMap)}'s turn`,
+              segments: [pSeg, seg("'s turn")],
               icon: '\u{25B6}',
               state: cloneState(state),
             })
@@ -185,6 +215,9 @@ export function useGameReplay(gameId: bigint) {
               state.hp[key] = Math.max(0, (state.hp[key] ?? 0) - damage)
             }
 
+            const shooterS = playerSeg(shooter, state.players, nameMap)
+            const targetS = playerSeg(target, state.players, nameMap)
+
             if (wasLive) {
               const dmgStr = damage > 1 ? ` (${damage} damage!)` : ''
               if (isSelf) {
@@ -192,6 +225,7 @@ export function useGameReplay(gameId: bigint) {
                   id: nextId++,
                   type: 'shot',
                   message: `${label(shooter, state.players, nameMap)} shot SELF \u2014 BANG!${dmgStr}`,
+                  segments: [shooterS, seg(` shot themselves \u2014 BANG!${dmgStr}`)],
                   icon: '\u{1F4A5}',
                   state: cloneState(state),
                 })
@@ -200,6 +234,7 @@ export function useGameReplay(gameId: bigint) {
                   id: nextId++,
                   type: 'shot',
                   message: `${label(shooter, state.players, nameMap)} shot ${label(target, state.players, nameMap)} \u2014 BANG!${dmgStr}`,
+                  segments: [shooterS, seg(' shot '), targetS, seg(` \u2014 BANG!${dmgStr}`)],
                   icon: '\u{1F4A5}',
                   state: cloneState(state),
                 })
@@ -210,6 +245,7 @@ export function useGameReplay(gameId: bigint) {
                   id: nextId++,
                   type: 'shot',
                   message: `${label(shooter, state.players, nameMap)} shot SELF \u2014 *click* blank (extra turn!)`,
+                  segments: [shooterS, seg(' shot themselves \u2014 *click* blank, extra turn!')],
                   icon: '\u{1F389}',
                   state: cloneState(state),
                 })
@@ -218,6 +254,7 @@ export function useGameReplay(gameId: bigint) {
                   id: nextId++,
                   type: 'shot',
                   message: `${label(shooter, state.players, nameMap)} shot ${label(target, state.players, nameMap)} \u2014 *click* blank`,
+                  segments: [shooterS, seg(' shot '), targetS, seg(' \u2014 *click* blank')],
                   icon: '\u{2B55}',
                   state: cloneState(state),
                 })
@@ -226,11 +263,10 @@ export function useGameReplay(gameId: bigint) {
           } else if (name === 'ItemUsed') {
             const player = args.player as Address
             const itemType = Number(args.itemType)
-            const itemName = ITEM_NAMES[itemType] ?? 'UNKNOWN'
+            const itemName = FRIENDLY_ITEM_NAMES[itemType] ?? `Item #${itemType}`
 
             // Handle cigarettes HP recovery
             if (itemType === 4) {
-              // Cigarettes: +1 HP
               const key = player.toLowerCase()
               const curHp = state.hp[key] ?? 0
               if (curHp < state.maxHp) {
@@ -238,10 +274,12 @@ export function useGameReplay(gameId: bigint) {
               }
             }
 
+            const pSeg = playerSeg(player, state.players, nameMap)
             replayEvents.push({
               id: nextId++,
               type: 'item',
               message: `${label(player, state.players, nameMap)} used ${itemName}`,
+              segments: [pSeg, seg(` used ${itemName}`)],
               icon: '\u{1F9F0}',
               state: cloneState(state),
             })
@@ -256,6 +294,7 @@ export function useGameReplay(gameId: bigint) {
               id: nextId++,
               type: 'shell_ejected',
               message: `Shell ejected: ${wasLive ? 'LIVE' : 'blank'}`,
+              segments: [seg(`Shell ejected: ${wasLive ? 'LIVE' : 'blank'}`)],
               icon: '\u{1F37A}',
               state: cloneState(state),
             })
@@ -263,10 +302,12 @@ export function useGameReplay(gameId: bigint) {
             const player = args.player as Address
             state.alive[player.toLowerCase()] = false
             state.hp[player.toLowerCase()] = 0
+            const pSeg = playerSeg(player, state.players, nameMap)
             replayEvents.push({
               id: nextId++,
               type: 'eliminated',
               message: `${label(player, state.players, nameMap)} ELIMINATED`,
+              segments: [pSeg, seg(' ELIMINATED')],
               icon: '\u{1F480}',
               state: cloneState(state),
             })
@@ -276,6 +317,7 @@ export function useGameReplay(gameId: bigint) {
               id: nextId++,
               type: 'round_end',
               message: `Round ${round} ended`,
+              segments: [seg(`Round ${round} ended`)],
               icon: '\u{1F3C1}',
               state: cloneState(state),
             })
@@ -285,10 +327,12 @@ export function useGameReplay(gameId: bigint) {
             state.winner = winner
             state.prize = prize
             state.currentTurn = null
+            const winnerS = playerSeg(winner, state.players, nameMap)
             replayEvents.push({
               id: nextId++,
               type: 'game_end',
               message: `GAME OVER! ${label(winner, state.players, nameMap)} wins! Prize: ${prize} ETH`,
+              segments: [seg('GAME OVER! '), winnerS, seg(` wins! Prize: ${prize} ETH`)],
               icon: '\u{1F3C6}',
               state: cloneState(state),
             })

@@ -134,7 +134,7 @@ export function GameReplay({ gameId, onBack }: GameReplayProps) {
     return events.slice(0, step + 1).map((e) => ({
       id: e.id,
       type: REPLAY_TO_GAME_TYPE[e.type] ?? 'info',
-      message: e.message,
+      segments: e.segments,
       timestamp: Date.now(),
     }))
   }, [events, step])
