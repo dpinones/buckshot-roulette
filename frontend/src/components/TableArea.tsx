@@ -13,10 +13,19 @@ interface TableAreaProps {
 export function TableArea({ liveShells, blankShells, spentShells, round, maxHp, prize, shotAction }: TableAreaProps) {
   return (
     <div
-      className="relative z-20 h-[33.34vh] shrink-0 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]"
+      className="relative z-20 h-[33.34vh] shrink-0"
+      style={{
+        borderRadius: '50% 50% 0 0 / 48px 48px 0 0',
+        background: 'white',
+        padding: '6px 6px 0 6px',
+        boxShadow: '0 -6px 20px rgba(0,0,0,0.15)',
+      }}
+    >
+    <div
+      className="relative w-full h-full"
       style={{
         background: 'linear-gradient(180deg, var(--color-table-pink) 0%, #D9A0C8 100%)',
-        borderTop: '10px solid var(--color-table-border)',
+        borderTop: '5px solid var(--color-table-border)',
         borderRadius: '50% 50% 0 0 / 40px 40px 0 0',
       }}
     >
@@ -106,6 +115,7 @@ export function TableArea({ liveShells, blankShells, spentShells, round, maxHp, 
           </div>
         </div>
       </div>
+    </div>
     </div>
   )
 }
