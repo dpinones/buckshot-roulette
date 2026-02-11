@@ -3,18 +3,14 @@ import type { ShotAction } from './GameBoard'
 interface TableAreaProps {
   liveShells: number
   blankShells: number
+  spentShells: number
   round: number
   maxHp: number
   prize: string
   shotAction: ShotAction
 }
 
-export function TableArea({ liveShells, blankShells, round, maxHp, prize, shotAction }: TableAreaProps) {
-  const shells = [
-    ...Array(liveShells).fill('live'),
-    ...Array(blankShells).fill('blank'),
-  ]
-
+export function TableArea({ liveShells, blankShells, spentShells, round, maxHp, prize, shotAction }: TableAreaProps) {
   return (
     <div
       className="relative z-20 h-[33.34vh] shrink-0 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]"
@@ -35,23 +31,61 @@ export function TableArea({ liveShells, blankShells, round, maxHp, prize, shotAc
           />
         </div>
 
-        {/* Shells row */}
-        <div className="flex items-center gap-2.5">
-          <span className="font-display text-lg text-text-dark drop-shadow-[0_1px_2px_rgba(255,255,255,0.5)]">
+        {/* Shells display */}
+        <div className="flex items-center gap-3">
+          {/* Spent shells */}
+          {spentShells > 0 && (
+            <div className="flex items-center gap-1 opacity-30">
+              {Array.from({ length: spentShells }, (_, i) => (
+                <img
+                  key={`spent-${i}`}
+                  src="/characters/bala_gris.png"
+                  alt="spent"
+                  className="h-[5vh] w-auto grayscale"
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Separator */}
+          {spentShells > 0 && (liveShells > 0 || blankShells > 0) && (
+            <div className="w-[2px] h-[6vh] bg-black/15 rounded-full" />
+          )}
+
+          {/* Remaining shells */}
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: liveShells }, (_, i) => (
+              <img
+                key={`live-${i}`}
+                src="/characters/bala_roja.png"
+                alt="live"
+                className="h-[8vh] w-auto drop-shadow-[2px_3px_2px_rgba(0,0,0,0.3)] hover:scale-110 transition-transform"
+              />
+            ))}
+            {Array.from({ length: blankShells }, (_, i) => (
+              <img
+                key={`blank-${i}`}
+                src="/characters/bala_gris.png"
+                alt="blank"
+                className="h-[8vh] w-auto drop-shadow-[2px_3px_2px_rgba(0,0,0,0.3)] hover:scale-110 transition-transform"
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Shell count badges */}
+        <div className="flex items-center gap-2">
+          <div className="inline-flex items-center gap-1.5 bg-[rgba(180,30,30,0.8)] border-[2px] border-red-400/40 rounded-2xl px-3 py-1 font-display text-base text-white shadow-[0_2px_6px_rgba(0,0,0,0.15)]">
             {liveShells} live
-          </span>
-          {shells.map((type, i) => (
-            <img
-              key={i}
-              src={type === 'live' ? '/characters/bala_roja.png' : '/characters/bala_gris.png'}
-              alt={type}
-              title={type === 'live' ? 'Live' : 'Blank'}
-              className="h-[8vh] w-auto drop-shadow-[2px_3px_2px_rgba(0,0,0,0.3)] transition-transform duration-200 hover:scale-110"
-            />
-          ))}
-          <span className="font-display text-lg text-text-dark drop-shadow-[0_1px_2px_rgba(255,255,255,0.5)]">
+          </div>
+          <div className="inline-flex items-center gap-1.5 bg-[rgba(120,120,120,0.8)] border-[2px] border-white/20 rounded-2xl px-3 py-1 font-display text-base text-white shadow-[0_2px_6px_rgba(0,0,0,0.15)]">
             {blankShells} blank
-          </span>
+          </div>
+          {spentShells > 0 && (
+            <div className="inline-flex items-center gap-1.5 bg-black/20 border-[2px] border-black/10 rounded-2xl px-3 py-1 font-display text-sm text-white/70">
+              {spentShells} spent
+            </div>
+          )}
         </div>
 
         {/* Badges */}

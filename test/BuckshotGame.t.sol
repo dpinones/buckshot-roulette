@@ -53,7 +53,7 @@ contract BuckshotGameTest is Test {
         players[0] = player1;
         players[1] = player2;
         gameId = game.createGame{value: BUY_IN * 2}(players, BUY_IN);
-        vm.warp(block.timestamp + 121);
+        vm.warp(block.timestamp + 21);
         game.activateGame(gameId);
     }
 
@@ -64,7 +64,7 @@ contract BuckshotGameTest is Test {
         players[2] = player3;
         players[3] = player4;
         gameId = game.createGame{value: BUY_IN * 4}(players, BUY_IN);
-        vm.warp(block.timestamp + 121);
+        vm.warp(block.timestamp + 21);
         game.activateGame(gameId);
     }
 
@@ -222,7 +222,7 @@ contract BuckshotGameTest is Test {
         assertEq(state.prizePool, BUY_IN * 2);
 
         // After betting window, activate
-        vm.warp(block.timestamp + 121);
+        vm.warp(block.timestamp + 21);
         game.activateGame(gameId);
 
         state = game.getGameState(gameId);
@@ -240,10 +240,10 @@ contract BuckshotGameTest is Test {
         game.createGame(seven, 0);
     }
 
-    function test_round1_hp_is_2() public {
+    function test_initial_hp_is_3() public {
         uint256 gameId = _createGame2Players();
-        assertEq(game.hp(gameId, player1), 2);
-        assertEq(game.hp(gameId, player2), 2);
+        assertEq(game.hp(gameId, player1), 3);
+        assertEq(game.hp(gameId, player2), 3);
     }
 
     function test_shootOpponent_notYourTurn() public {
@@ -361,8 +361,8 @@ contract BuckshotGameTest is Test {
         // This is hard to control deterministically, so let's test item logic
         // by directly checking items getter works
         uint8[] memory p1Items = game.getMyItems(gameId, player1);
-        // Round 1 has no items
-        assertEq(p1Items.length, 0);
+        // Items distributed at game start (2 per player)
+        assertEq(p1Items.length, 2);
     }
 
     function test_getVisibleShells() public {
@@ -371,7 +371,7 @@ contract BuckshotGameTest is Test {
         (uint8 live, uint8 blank) = game.getVisibleShells(gameId);
         assertTrue(live > 0);
         assertTrue(blank > 0);
-        assertTrue(live + blank >= 2 && live + blank <= 4); // Round 1 limits
+        assertEq(live + blank, 6); // fixed 6 shells per round
     }
 
     // ── GameFactory Tests ───────────────────────────────────────

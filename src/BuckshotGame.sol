@@ -15,9 +15,7 @@ contract BuckshotGame {
         MAGNIFYING_GLASS,
         BEER,
         HANDSAW,
-        HANDCUFFS,
-        CIGARETTES,
-        INVERTER
+        CIGARETTES
     }
 
     // ── Structs ─────────────────────────────────────────────────
@@ -64,7 +62,6 @@ contract BuckshotGame {
     mapping(uint256 => mapping(address => uint8)) public hp;
     mapping(uint256 => mapping(address => uint8[])) internal items;
     mapping(uint256 => mapping(address => bool)) public sawActive;
-    mapping(uint256 => mapping(address => bool)) public skipNextTurn;
     mapping(uint256 => mapping(address => bool)) public currentShellKnown;
     mapping(uint256 => mapping(address => uint8)) public knownShellValue;
 
@@ -131,6 +128,7 @@ contract BuckshotGame {
         for (uint256 i = 0; i < len; i++) {
             g.players.push(players[i]);
             g.alive.push(true);
+            hp[gameId][players[i]] = 3;
         }
 
         g.phase = GamePhase.WAITING;
@@ -150,6 +148,7 @@ contract BuckshotGame {
         if (block.timestamp < bettingDeadline[gameId]) revert BettingWindowActive();
         g.phase = GamePhase.ACTIVE;
         emit GameActivated(gameId);
+        _distributeItems(gameId);
         _startRound(gameId);
     }
 
@@ -232,25 +231,12 @@ contract BuckshotGame {
         } else if (itemType == uint8(ItemType.HANDSAW)) {
             sawActive[gameId][msg.sender] = true;
             emit ItemUsed(gameId, msg.sender, itemType, "");
-        } else if (itemType == uint8(ItemType.HANDCUFFS)) {
-            // Skip the next player in turn order (not self)
-            address nextPlayer = _getNextAlivePlayer(gameId, g.currentTurnIndex);
-            skipNextTurn[gameId][nextPlayer] = true;
-            emit ItemUsed(gameId, msg.sender, itemType, abi.encode(nextPlayer));
         } else if (itemType == uint8(ItemType.CIGARETTES)) {
-            uint8 maxHp = _maxHpForRound(g.currentRound);
             uint8 curHp = hp[gameId][msg.sender];
-            if (curHp < maxHp) {
+            if (curHp < 3) {
                 hp[gameId][msg.sender] = curHp + 1;
             }
             emit ItemUsed(gameId, msg.sender, itemType, abi.encode(hp[gameId][msg.sender]));
-        } else if (itemType == uint8(ItemType.INVERTER)) {
-            g.shells[g.shellIndex] = 1 - g.shells[g.shellIndex];
-            // If player knew the shell, update their knowledge
-            if (currentShellKnown[gameId][msg.sender]) {
-                knownShellValue[gameId][msg.sender] = 1 - knownShellValue[gameId][msg.sender];
-            }
-            emit ItemUsed(gameId, msg.sender, itemType, "");
         }
 
         // Using an item does NOT end the turn — player still must shoot
@@ -341,45 +327,14 @@ contract BuckshotGame {
 
     function _startRound(uint256 gameId) internal {
         Game storage g = games[gameId];
-        uint8 round = g.currentRound;
-        uint8 maxHp = _maxHpForRound(round);
-
-        emit RoundStarted(gameId, round);
-
-        // Set HP for alive players
-        for (uint256 i = 0; i < g.players.length; i++) {
-            if (g.alive[i]) {
-                hp[gameId][g.players[i]] = maxHp;
-            }
-        }
-
-        // Distribute items for rounds 2 and 3
-        if (round >= 2) {
-            _distributeItems(gameId);
-        }
-
+        emit RoundStarted(gameId, g.currentRound);
         _loadShells(gameId);
         _startNextTurn(gameId);
     }
 
     function _loadShells(uint256 gameId) internal {
         Game storage g = games[gameId];
-        uint8 round = g.currentRound;
-
-        uint8 minShells;
-        uint8 maxShells;
-        if (round == 1) {
-            minShells = 2;
-            maxShells = 4;
-        } else if (round == 2) {
-            minShells = 4;
-            maxShells = 6;
-        } else {
-            minShells = 5;
-            maxShells = 8;
-        }
-
-        uint8 totalShells = _random(minShells, maxShells);
+        uint8 totalShells = 6;
         uint8 liveCount = _random(1, totalShells - 1); // At least 1 live, 1 blank
         uint8 blankCount = totalShells - liveCount;
 
@@ -404,16 +359,12 @@ contract BuckshotGame {
 
     function _distributeItems(uint256 gameId) internal {
         Game storage g = games[gameId];
-        uint8 itemCount = g.currentRound == 2 ? 2 : 4;
-
         for (uint256 i = 0; i < g.players.length; i++) {
             if (!g.alive[i]) continue;
             address player = g.players[i];
-            for (uint8 j = 0; j < itemCount; j++) {
-                if (items[gameId][player].length < 8) {
-                    uint8 randomItem = _random(1, 6); // ItemType 1-6
-                    items[gameId][player].push(randomItem);
-                }
+            for (uint8 j = 0; j < 2; j++) {
+                uint8 randomItem = _random(1, 4); // ItemType 1-4
+                items[gameId][player].push(randomItem);
             }
         }
         emit ItemsDistributed(gameId, g.currentRound);
@@ -455,7 +406,6 @@ contract BuckshotGame {
                 // Clear items
                 delete items[gameId][victim];
                 sawActive[gameId][victim] = false;
-                skipNextTurn[gameId][victim] = false;
 
                 break;
             }
@@ -491,35 +441,15 @@ contract BuckshotGame {
 
     function _checkRoundTransition(uint256 gameId) internal {
         Game storage g = games[gameId];
-
-        if (g.currentRound < 3) {
-            g.currentRound++;
-            emit RoundEnded(gameId, g.currentRound - 1);
-            _startRound(gameId);
-        } else {
-            // Reload shells for same round (round 3 can continue)
-            _loadShells(gameId);
-            _advanceTurn(gameId);
-        }
+        emit RoundEnded(gameId, g.currentRound);
+        g.currentRound++;
+        _startRound(gameId);
     }
 
     function _advanceTurn(uint256 gameId) internal {
         Game storage g = games[gameId];
         uint8 nextIdx = _findNextAliveIndex(gameId, g.currentTurnIndex);
         g.currentTurnIndex = nextIdx;
-
-        address nextPlayer = g.players[nextIdx];
-
-        // Check handcuffs skip
-        if (skipNextTurn[gameId][nextPlayer]) {
-            skipNextTurn[gameId][nextPlayer] = false;
-            emit TurnStarted(gameId, nextPlayer, 0); // Signal skipped
-            // Advance again
-            nextIdx = _findNextAliveIndex(gameId, nextIdx);
-            g.currentTurnIndex = nextIdx;
-            nextPlayer = g.players[nextIdx];
-        }
-
         _startNextTurn(gameId);
     }
 
@@ -565,11 +495,6 @@ contract BuckshotGame {
         return idx;
     }
 
-    function _getNextAlivePlayer(uint256 gameId, uint8 currentIdx) internal view returns (address) {
-        uint8 nextIdx = _findNextAliveIndex(gameId, currentIdx);
-        return games[gameId].players[nextIdx];
-    }
-
     function _requireAlivePlayer(uint256 gameId, address player) internal view {
         Game storage g = games[gameId];
         for (uint256 i = 0; i < g.players.length; i++) {
@@ -584,12 +509,6 @@ contract BuckshotGame {
     function _clearShellKnowledge(uint256 gameId, address player) internal {
         currentShellKnown[gameId][player] = false;
         knownShellValue[gameId][player] = 0;
-    }
-
-    function _maxHpForRound(uint8 round) internal pure returns (uint8) {
-        if (round == 1) return 2;
-        if (round == 2) return 4;
-        return 5; // round 3
     }
 
     function _random(uint8 min, uint8 max) internal returns (uint8) {

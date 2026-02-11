@@ -23,7 +23,7 @@ BUYIN="10000000000000"  # 0.00001 ETH
 GAME_ID=0
 MAX_TURNS=150
 
-ITEM_NAMES=("NONE" "MAGNIFYING_GLASS" "BEER" "HANDSAW" "HANDCUFFS" "CIGARETTES" "INVERTER")
+ITEM_NAMES=("NONE" "MAGNIFYING_GLASS" "BEER" "HANDSAW" "CIGARETTES")
 
 # Delay entre acciones: modo espectador = 5s, normal = 0.2s
 if [ "${SPECTATE:-0}" = "1" ]; then
@@ -88,7 +88,7 @@ format_items() {
   IFS=',' read -ra nums <<< "$raw"
   for n in "${nums[@]}"; do
     n=$(echo "$n" | tr -d ' ')
-    if [ -n "$n" ] && [ "$n" -ge 1 ] 2>/dev/null && [ "$n" -le 6 ]; then
+    if [ -n "$n" ] && [ "$n" -ge 1 ] 2>/dev/null && [ "$n" -le 4 ]; then
       result+="${ITEM_NAMES[$n]}, "
     fi
   done
@@ -315,7 +315,7 @@ while [ $TURN -lt $MAX_TURNS ]; do
   ROUND_NUM=$(get_round)
   if [ "$PREV_ROUND" != "$ROUND_NUM" ] && [ "$ROUND_NUM" -ge 1 ] 2>/dev/null; then
     echo ""
-    echo "  ========== RONDA $ROUND_NUM (HP: R1=2, R2=4, R3=5) =========="
+    echo "  ========== RONDA $ROUND_NUM (HP: 3) =========="
     PREV_ROUND=$ROUND_NUM
   fi
 
@@ -359,8 +359,8 @@ while [ $TURN -lt $MAX_TURNS ]; do
         fi
       fi
 
-      # CIGARETTES (5) — heal
-      if [ "$ITEM_VAL" = "5" ]; then
+      # CIGARETTES (4) — heal
+      if [ "$ITEM_VAL" = "4" ]; then
         RESULT=$(cast_send "$CURRENT_PK" "useItem(uint256,uint8)" $GAME_ID "$IDX")
         if tx_succeeded "$RESULT"; then
           echo "  [CIGARETTES] +1 HP"
@@ -387,28 +387,6 @@ while [ $TURN -lt $MAX_TURNS ]; do
           echo "  [BEER] expulsa blank"
           KNOWN_SHELL=""
           USED=true; break
-        fi
-      fi
-
-      # INVERTER (6) — flip shell if blank
-      if [ "$ITEM_VAL" = "6" ] && [ "$KNOWN_SHELL" = "blank" ]; then
-        RESULT=$(cast_send "$CURRENT_PK" "useItem(uint256,uint8)" $GAME_ID "$IDX")
-        if tx_succeeded "$RESULT"; then
-          KNOWN_SHELL="live"
-          echo "  [INVERTER] blank -> live"
-          USED=true; break
-        fi
-      fi
-
-      # HANDCUFFS (4) — skip opponent
-      if [ "$ITEM_VAL" = "4" ]; then
-        SKIP=$(cast_call "skipNextTurn(uint256,address)(bool)" $GAME_ID "$OPPONENT")
-        if [ "$SKIP" = "false" ]; then
-          RESULT=$(cast_send "$CURRENT_PK" "useItem(uint256,uint8)" $GAME_ID "$IDX")
-          if tx_succeeded "$RESULT"; then
-            echo "  [HANDCUFFS] $OPPONENT_NAME pierde su turno"
-            USED=true; break
-          fi
         fi
       fi
     done

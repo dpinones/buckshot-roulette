@@ -31,12 +31,6 @@ interface GameBoardProps {
   onBack?: () => void
 }
 
-function maxHpForRound(round: number): number {
-  if (round === 1) return 2
-  if (round === 2) return 4
-  return 5
-}
-
 function getNextAliveIdx(alive: readonly boolean[], fromIdx: number): number {
   const aliveIdxs = alive.map((a, i) => a ? i : -1).filter(i => i >= 0)
   if (aliveIdxs.length === 0) return fromIdx
@@ -51,6 +45,7 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
   const [showReadyGo, setShowReadyGo] = useState(true)
   const [shotAction, setShotAction] = useState<ShotAction>(null)
   const [damagedIdx, setDamagedIdx] = useState<number | null>(null)
+  const [roundTotalShells, setRoundTotalShells] = useState(state.shellsRemaining)
   const players = state.players
   const names = usePlayerNames(players)
   const { playTurnSfx, playShotSfx, playBlankSfx, playPrepareSfx, playReloadSfx } = useAudio()
@@ -70,7 +65,7 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
     return getCharacter(getOnChainName(index)).name
   }
 
-  const maxHp = maxHpForRound(state.currentRound)
+  const maxHp = 3
   const isFinished = state.phase === Phase.FINISHED
   const nextAliveIdx = getNextAliveIdx(state.alive, state.currentTurnIndex)
 
@@ -186,7 +181,14 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
     return () => clearShotTimers()
   }, [state.shellsRemaining, state.hpList, prevState, clearShotTimers, playShotSfx, playBlankSfx, playPrepareSfx, showReadyGo])
 
-  // Shell reload detection
+  // Track total shells for the round: update when shells increase (reload) or first appear
+  useEffect(() => {
+    if (state.shellsRemaining > roundTotalShells) {
+      setRoundTotalShells(state.shellsRemaining)
+    }
+  }, [state.shellsRemaining, roundTotalShells])
+
+  // Shell reload detection (SFX only)
   useEffect(() => {
     if (showReadyGo) return
     if (!prevState) return
@@ -252,6 +254,7 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
       <TableArea
         liveShells={state.liveRemaining}
         blankShells={state.blankRemaining}
+        spentShells={roundTotalShells - state.shellsRemaining}
         round={state.currentRound}
         maxHp={maxHp}
         prize={state.prizePoolFormatted}

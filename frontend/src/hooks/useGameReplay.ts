@@ -33,12 +33,6 @@ function label(addr: Address, players: Address[], nameMap: Record<string, string
   return idx >= 0 ? getCharacter('').name : `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
-function maxHpForRound(round: number): number {
-  if (round === 1) return 2
-  if (round === 2) return 4
-  return 5
-}
-
 function cloneState(s: ReplayState): ReplayState {
   return {
     ...s,
@@ -107,7 +101,7 @@ export function useGameReplay(gameId: bigint) {
         let state: ReplayState = {
           players: [],
           hp: {},
-          maxHp: 2,
+          maxHp: 3,
           alive: {},
           currentRound: 0,
           currentTurn: null,
@@ -129,7 +123,7 @@ export function useGameReplay(gameId: bigint) {
             const players = args.players as Address[]
             state.players = players
             for (const p of players) {
-              state.hp[p.toLowerCase()] = 0
+              state.hp[p.toLowerCase()] = 3
               state.alive[p.toLowerCase()] = true
             }
             const buyIn = formatEther(args.buyIn as bigint)
@@ -143,17 +137,11 @@ export function useGameReplay(gameId: bigint) {
           } else if (name === 'RoundStarted') {
             const round = Number(args.round)
             state.currentRound = round
-            state.maxHp = maxHpForRound(round)
-            // Reset HP for alive players
-            for (const p of state.players) {
-              if (state.alive[p.toLowerCase()]) {
-                state.hp[p.toLowerCase()] = state.maxHp
-              }
-            }
+            state.maxHp = 3
             replayEvents.push({
               id: nextId++,
               type: 'round_start',
-              message: `Round ${round} started (Max HP: ${state.maxHp})`,
+              message: `Round ${round} started`,
               icon: '\u{1F3AF}',
               state: cloneState(state),
             })
@@ -169,26 +157,14 @@ export function useGameReplay(gameId: bigint) {
             })
           } else if (name === 'TurnStarted') {
             const player = args.player as Address
-            const deadline = args.deadline as bigint
             state.currentTurn = player
-            // Skip turn (deadline=0) means handcuffed
-            if (deadline === 0n) {
-              replayEvents.push({
-                id: nextId++,
-                type: 'turn',
-                message: `${label(player, state.players, nameMap)}'s turn SKIPPED (handcuffed)`,
-                icon: '\u{1F517}',
-                state: cloneState(state),
-              })
-            } else {
-              replayEvents.push({
-                id: nextId++,
-                type: 'turn',
-                message: `${label(player, state.players, nameMap)}'s turn`,
-                icon: '\u{25B6}',
-                state: cloneState(state),
-              })
-            }
+            replayEvents.push({
+              id: nextId++,
+              type: 'turn',
+              message: `${label(player, state.players, nameMap)}'s turn`,
+              icon: '\u{25B6}',
+              state: cloneState(state),
+            })
           } else if (name === 'ShotFired') {
             const shooter = args.shooter as Address
             const target = args.target as Address
@@ -253,7 +229,7 @@ export function useGameReplay(gameId: bigint) {
             const itemName = ITEM_NAMES[itemType] ?? 'UNKNOWN'
 
             // Handle cigarettes HP recovery
-            if (itemType === 5) {
+            if (itemType === 4) {
               // Cigarettes: +1 HP
               const key = player.toLowerCase()
               const curHp = state.hp[key] ?? 0

@@ -67,106 +67,101 @@ export function validateActions(
 }
 
 /**
- * Deterministic fallback strategy based on play_local.sh logic.
+ * Pick the alive opponent with the lowest HP (most likely to eliminate).
+ */
+function pickTarget(state: ReadableGameState): Address {
+  const aliveOpponents = state.opponents.filter((o) => o.alive)
+  if (aliveOpponents.length === 0) {
+    return state.opponents[0].address // shouldn't happen
+  }
+  return aliveOpponents.reduce((min, o) => (o.hp < min.hp ? o : min)).address
+}
+
+/**
+ * Find index of a specific item in myItems (0 = NONE, 1 = GLASS, 2 = BEER, 3 = HANDSAW, 4 = CIGARETTES).
+ * Returns -1 if not found. Skips already-used indices.
+ */
+function findItem(state: ReadableGameState, itemId: number, usedIndices: Set<number>): number {
+  return state.myItems.findIndex((it, idx) => it === itemId && !usedIndices.has(idx))
+}
+
+/**
+ * Smart fallback strategy with probability-aware decision making.
  * Used when LLM fails or returns invalid actions.
  */
 export function fallbackStrategy(state: ReadableGameState): GameAction[] {
   const actions: GameAction[] = []
+  const usedIndices = new Set<number>()
 
-  // Priority-ordered item usage (up to 3 items)
-  let knownShell: 'live' | 'blank' | null = state.shellKnown
+  const knownShell: 'live' | 'blank' | null = state.shellKnown
     ? (state.knownShellIsLive ? 'live' : 'blank')
     : null
 
-  let itemsUsed = 0
-  const usedIndices = new Set<number>()
+  const allLive = state.blankRemaining === 0 && state.shellsRemaining > 0
+  const allBlank = state.liveRemaining === 0 && state.shellsRemaining > 0
 
-  for (let pass = 0; pass < 3 && itemsUsed < 3; pass++) {
-    let usedThisPass = false
-
-    for (let idx = 0; idx < state.myItems.length; idx++) {
-      if (usedIndices.has(idx)) continue
-      const item = state.myItems[idx]
-      if (item === 0) continue
-
-      const name = ITEM_NAMES[item]
-
-      // 1. MAGNIFYING_GLASS - always use first if shell unknown
-      if (item === 1 && knownShell === null) {
-        actions.push({ type: 'useItem', itemIndex: idx })
-        usedIndices.add(idx)
-        // After using magnifying glass, we'll know the shell
-        // For fallback, assume we need to re-read state, but we continue planning
-        knownShell = 'unknown-will-read' as 'live' // placeholder
-        usedThisPass = true
-        itemsUsed++
-        break
-      }
-
-      // 2. CIGARETTES - heal
-      if (item === 5) {
-        actions.push({ type: 'useItem', itemIndex: idx })
-        usedIndices.add(idx)
-        usedThisPass = true
-        itemsUsed++
-        break
-      }
-
-      // 3. HANDSAW - double damage (skip if shell known blank)
-      if (item === 3 && knownShell !== 'blank' && !state.sawActive) {
-        actions.push({ type: 'useItem', itemIndex: idx })
-        usedIndices.add(idx)
-        usedThisPass = true
-        itemsUsed++
-        break
-      }
-
-      // 4. BEER - eject if known blank
-      if (item === 2 && knownShell === 'blank') {
-        actions.push({ type: 'useItem', itemIndex: idx })
-        usedIndices.add(idx)
-        knownShell = null // shell ejected, next is unknown
-        usedThisPass = true
-        itemsUsed++
-        break
-      }
-
-      // 5. INVERTER - flip if known blank
-      if (item === 6 && knownShell === 'blank') {
-        actions.push({ type: 'useItem', itemIndex: idx })
-        usedIndices.add(idx)
-        knownShell = 'live'
-        usedThisPass = true
-        itemsUsed++
-        break
-      }
-
-      // 6. HANDCUFFS - use on strongest alive opponent
-      if (item === 4) {
-        actions.push({ type: 'useItem', itemIndex: idx })
-        usedIndices.add(idx)
-        usedThisPass = true
-        itemsUsed++
-        break
-      }
-    }
-
-    if (!usedThisPass) break
-  }
-
-  // Shooting decision
+  // --- Case 1: Shell is KNOWN BLANK → self-shot immediately (don't waste items) ---
   if (knownShell === 'blank') {
     actions.push({ type: 'shootSelf' })
-  } else {
-    // Target the opponent with the lowest HP (more likely to eliminate)
-    const aliveOpponents = state.opponents.filter((o) => o.alive)
-    if (aliveOpponents.length > 0) {
-      const target = aliveOpponents.reduce((min, o) => (o.hp < min.hp ? o : min))
-      actions.push({ type: 'shootOpponent', target: target.address })
-    } else {
-      actions.push({ type: 'shootSelf' }) // No opponents alive (shouldn't happen)
+    return actions
+  }
+
+  // --- Case 2: Shell is KNOWN LIVE → HANDSAW + shoot lowest-HP opponent ---
+  if (knownShell === 'live') {
+    if (!state.sawActive) {
+      const sawIdx = findItem(state, 3, usedIndices)
+      if (sawIdx !== -1) {
+        actions.push({ type: 'useItem', itemIndex: sawIdx })
+        usedIndices.add(sawIdx)
+      }
+    }
+    actions.push({ type: 'shootOpponent', target: pickTarget(state) })
+    return actions
+  }
+
+  // --- Case 3: Shell is UNKNOWN ---
+
+  // Use MAGNIFYING_GLASS if available (information is highest priority)
+  const glassIdx = findItem(state, 1, usedIndices)
+  if (glassIdx !== -1) {
+    actions.push({ type: 'useItem', itemIndex: glassIdx })
+    usedIndices.add(glassIdx)
+    // After glass, we won't know the result in fallback, so make a probability-based shot
+    // The glass will reveal it on-chain and the next fallback call will handle it
+    // For now, shoot opponent as safe default
+    actions.push({ type: 'shootOpponent', target: pickTarget(state) })
+    return actions
+  }
+
+  // Use CIGARETTES if HP < 3
+  if (state.myHp < 3) {
+    const cigIdx = findItem(state, 4, usedIndices)
+    if (cigIdx !== -1) {
+      actions.push({ type: 'useItem', itemIndex: cigIdx })
+      usedIndices.add(cigIdx)
     }
   }
 
+  // All remaining shells are LIVE → HANDSAW + shoot opponent
+  if (allLive) {
+    if (!state.sawActive) {
+      const sawIdx = findItem(state, 3, usedIndices)
+      if (sawIdx !== -1) {
+        actions.push({ type: 'useItem', itemIndex: sawIdx })
+        usedIndices.add(sawIdx)
+      }
+    }
+    actions.push({ type: 'shootOpponent', target: pickTarget(state) })
+    return actions
+  }
+
+  // All remaining shells are BLANK → self-shot for free extra turn
+  if (allBlank) {
+    actions.push({ type: 'shootSelf' })
+    return actions
+  }
+
+  // Mixed shells, unknown → shoot opponent (conservative default)
+  actions.push({ type: 'shootOpponent', target: pickTarget(state) })
   return actions
 }

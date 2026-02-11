@@ -51,8 +51,7 @@ export function useEventLog(
 
     // Round change
     if (state.currentRound !== prevState.currentRound && state.currentRound > 0) {
-      const maxHp = state.currentRound === 1 ? 2 : state.currentRound === 2 ? 4 : 5
-      addEvent('round', `Round ${state.currentRound} (Max HP: ${maxHp})`)
+      addEvent('round', `Round ${state.currentRound}`)
     }
 
     // HP changes (damage)

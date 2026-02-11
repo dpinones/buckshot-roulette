@@ -316,18 +316,14 @@ export const ITEM_NAMES: Record<number, string> = {
   1: 'MAGNIFYING_GLASS',
   2: 'BEER',
   3: 'HANDSAW',
-  4: 'HANDCUFFS',
-  5: 'CIGARETTES',
-  6: 'INVERTER',
+  4: 'CIGARETTES',
 }
 
 export const ITEM_ICONS: Record<number, string> = {
   1: '\u{1F50D}', // magnifying glass
   2: '\u{1F37A}', // beer
   3: '\u{1FA9A}', // handsaw (carpentry saw)
-  4: '\u{1F517}', // handcuffs (link chain)
-  5: '\u{1F6AC}', // cigarettes
-  6: '\u{1F504}', // inverter (arrows)
+  4: '\u{1F6AC}', // cigarettes
 }
 
 // Phase enum

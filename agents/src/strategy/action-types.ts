@@ -10,9 +10,7 @@ export const ITEM_NAMES: Record<number, string> = {
   1: 'MAGNIFYING_GLASS',
   2: 'BEER',
   3: 'HANDSAW',
-  4: 'HANDCUFFS',
-  5: 'CIGARETTES',
-  6: 'INVERTER',
+  4: 'CIGARETTES',
 }
 
 export const Phase = {
