@@ -184,7 +184,7 @@ export function CharacterStage({ players, alive, currentTurnIndex, centerOverrid
     if (shotAction.isSelf) {
       // Self-shot: shotgun points upward at the shooter's own body
       shotgunLeft = '50%'
-      shotgunTransform = 'translateX(-50%) translateY(+80%) rotate(45deg)'
+      shotgunTransform = 'translateX(-45%) translateY(+200%) rotate(270deg)'
     } else {
       // Opponent shot: determine direction to target
       const targetPos = posMap[shotAction.targetIdx]

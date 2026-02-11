@@ -48,6 +48,7 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
   const [damagedIdx, setDamagedIdx] = useState<number | null>(null)
   const [roundTotalShells, setRoundTotalShells] = useState(state.shellsRemaining)
   const [flashTurnIdx, setFlashTurnIdx] = useState(state.currentTurnIndex)
+  const [showGameOver, setShowGameOver] = useState(false)
   const players = state.players
   const names = usePlayerNames(players)
   const { playTurnSfx, playShotSfx, playBlankSfx, playPrepareSfx, playReloadSfx, volume, setVolume } = useAudio()
@@ -95,9 +96,12 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
   const nextAliveIdx = getNextAliveIdx(dAlive, dTurnIdx)
 
   // Synchronous shot detection: freeze character positions during shot animation
-  // This is computed during render so CharacterStage sees the override immediately
-  const shotJustHappened = prevState != null && state.shellsRemaining < prevState.shellsRemaining
-  const centerOverrideIdx = shotJustHappened ? prevState.currentTurnIndex : undefined
+  // Detect shot: shells decreased, OR round changed (last shell caused reload), OR game just ended
+  const shellDecreased = prevState != null && state.shellsRemaining < prevState.shellsRemaining
+  const roundChanged = prevState != null && state.currentRound > prevState.currentRound
+  const gameJustEnded = prevState != null && state.phase === Phase.FINISHED && prevState.phase !== Phase.FINISHED
+  const shotJustHappened = shellDecreased || roundChanged || gameJustEnded
+  const centerOverrideIdx = shotJustHappened ? prevState!.currentTurnIndex : undefined
 
   // Play turn SFX and toggle thinking on turn change
   // Skip when a shot just happened — the shot animation handles it with delay
@@ -128,11 +132,11 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
     }
   }, [state.shellsRemaining, state.playerItems, showReadyGo])
 
-  // Shot detection: compare shells remaining to detect a shot was fired
+  // Shot detection: shells decreased, round changed (reload after last shell), or game ended
   useEffect(() => {
     if (showReadyGo) return
     if (!prevState) return
-    if (state.shellsRemaining >= prevState.shellsRemaining) return
+    if (!shellDecreased && !roundChanged && !gameJustEnded) return
 
     // A shell was fired
     const shooterIdx = prevState.currentTurnIndex
@@ -232,7 +236,7 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
     shotTimersRef.current = [t1, t2, t3, t4]
 
     return () => clearShotTimers()
-  }, [state.shellsRemaining, state.hpList, prevState, clearShotTimers, playShotSfx, playBlankSfx, playPrepareSfx, playTurnSfx, showReadyGo])
+  }, [state.shellsRemaining, state.hpList, state.currentRound, state.phase, prevState, clearShotTimers, playShotSfx, playBlankSfx, playPrepareSfx, playTurnSfx, showReadyGo])
 
   // Track total shells for the round: update when shells increase (reload) or first appear
   useEffect(() => {
@@ -241,14 +245,26 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
     }
   }, [state.shellsRemaining, roundTotalShells])
 
-  // Shell reload detection (SFX only)
+  // Shell reload detection (SFX only) — delay if it coincides with a shot (round transition)
   useEffect(() => {
     if (showReadyGo) return
     if (!prevState) return
-    if (state.shellsRemaining > prevState.shellsRemaining) {
-      playReloadSfx()
+    if (state.shellsRemaining <= prevState.shellsRemaining) return
+    // If a round just changed, delay reload SFX so it plays after the shot animation
+    if (state.currentRound > prevState.currentRound) {
+      const timer = setTimeout(() => playReloadSfx(), 2200)
+      return () => clearTimeout(timer)
     }
-  }, [state.shellsRemaining, prevState, playReloadSfx, showReadyGo])
+    playReloadSfx()
+  }, [state.shellsRemaining, state.currentRound, prevState, playReloadSfx, showReadyGo])
+
+  // Delay game over overlay so the last shot animation plays out
+  useEffect(() => {
+    if (isFinished && !showGameOver) {
+      const timer = setTimeout(() => setShowGameOver(true), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [isFinished, showGameOver])
 
   return (
     <div className="relative w-screen h-screen overflow-hidden flex flex-col select-none">
@@ -318,7 +334,7 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
       <EventLogNotebook events={events} />
 
       {/* Game Over overlay */}
-      {isFinished && (
+      {showGameOver && (
         <GameOverOverlay
           winner={state.winner}
           label={
