@@ -2,13 +2,17 @@ import { useEffect, useRef, useCallback } from 'react'
 import { type Address } from 'viem'
 import { getCharacter } from '../config/characters'
 import { ThinkingBubble } from './ThinkingBubble'
+import type { ShotAction } from './GameBoard'
 
 interface CharacterStageProps {
   players: readonly Address[]
   alive: readonly boolean[]
   currentTurnIndex: number
+  centerOverrideIdx?: number
   names: Record<string, string>
   isThinking: boolean
+  shotAction: ShotAction
+  damagedIdx: number | null
 }
 
 type PosClass = 'pos-center' | 'pos-left' | 'pos-right' | 'pos-off-left' | 'pos-off-right' | 'pos-hidden'
@@ -35,7 +39,7 @@ function getPrevAliveIdx(alive: readonly boolean[], fromIdx: number): number {
 
 const ALL_POS: PosClass[] = ['pos-center', 'pos-left', 'pos-right', 'pos-off-left', 'pos-off-right', 'pos-hidden']
 
-export function CharacterStage({ players, alive, currentTurnIndex, names, isThinking }: CharacterStageProps) {
+export function CharacterStage({ players, alive, currentTurnIndex, centerOverrideIdx, names, isThinking, shotAction, damagedIdx }: CharacterStageProps) {
   const positionsRef = useRef<Record<number, PosClass>>({})
   const blinkTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
   const stageRef = useRef<HTMLDivElement>(null)
@@ -50,8 +54,8 @@ export function CharacterStage({ players, alive, currentTurnIndex, names, isThin
   const getOnChainNameRef = useRef(getOnChainName)
   getOnChainNameRef.current = getOnChainName
 
-  // Calculate positions
-  const centerIdx = currentTurnIndex
+  // Calculate positions — freeze at shooter during shot animation
+  const centerIdx = centerOverrideIdx ?? currentTurnIndex
   const leftIdx = getPrevAliveIdx(alive, centerIdx)
   const rightIdx = getNextAliveIdx(alive, centerIdx)
 
@@ -101,7 +105,22 @@ export function CharacterStage({ players, alive, currentTurnIndex, names, isThin
         }
       }
     })
-  }, [currentTurnIndex, alive, players])
+  }, [currentTurnIndex, centerOverrideIdx, alive, players])
+
+  // Damage animation: apply taking-damage class
+  useEffect(() => {
+    if (!stageRef.current || damagedIdx === null) return
+
+    const slot = stageRef.current.querySelector(`[data-char-idx="${damagedIdx}"]`) as HTMLElement
+    if (!slot) return
+
+    slot.classList.add('taking-damage')
+    const timer = setTimeout(() => slot.classList.remove('taking-damage'), 600)
+    return () => {
+      clearTimeout(timer)
+      slot.classList.remove('taking-damage')
+    }
+  }, [damagedIdx])
 
   // Blink system
   useEffect(() => {
@@ -158,6 +177,32 @@ export function CharacterStage({ players, alive, currentTurnIndex, names, isThin
     }
   }, [players.length])
 
+  // Shotgun overlay: position + rotation based on who's being shot
+  let shotgunLeft = '50%'
+  let shotgunTransform = 'translateX(-50%) rotate(-5deg)'
+  if (shotAction) {
+    if (shotAction.isSelf) {
+      // Self-shot: shotgun points upward at the shooter's own body
+      shotgunLeft = '50%'
+      shotgunTransform = 'translateX(-50%) rotate(85deg)'
+    } else {
+      // Opponent shot: determine direction to target
+      const targetPos = posMap[shotAction.targetIdx]
+      const pointsLeft = targetPos === 'pos-left' ||
+        (!targetPos && shotAction.targetIdx < shotAction.shooterIdx)
+
+      if (pointsLeft) {
+        // Slight offset left, barrel pointing left
+        shotgunLeft = '40%'
+        shotgunTransform = 'translateX(-50%) translateY(+80%) scaleX(-1) rotate(-15deg)'
+      } else {
+        // Slight offset right, barrel pointing right
+        shotgunLeft = '60%'
+        shotgunTransform = 'translateX(-50%) translateY(+80%) rotate(-15deg)'
+      }
+    }
+  }
+
   return (
     <div className="relative z-[6] h-[33.33vh] shrink-0">
       <div ref={stageRef} className="absolute inset-0 overflow-visible">
@@ -170,8 +215,8 @@ export function CharacterStage({ players, alive, currentTurnIndex, names, isThin
               data-char-idx={i}
               className="char-slot pos-hidden"
             >
-              {/* Thinking bubble — only on center character */}
-              {isCenter && isThinking && alive[i] && (
+              {/* Thinking bubble — only on center character, hidden during shot */}
+              {isCenter && isThinking && alive[i] && !shotAction && (
                 <ThinkingBubble text={char.thought} />
               )}
               <img
@@ -182,6 +227,20 @@ export function CharacterStage({ players, alive, currentTurnIndex, names, isThin
             </div>
           )
         })}
+
+        {/* Shotgun overlay — appears on shooter during shot animation */}
+        {shotAction && (
+          <div
+            className="shotgun-overlay"
+            style={{ left: shotgunLeft, transform: shotgunTransform }}
+          >
+            <img
+              src="/characters/shotgun.png"
+              alt="shotgun"
+              className={shotAction.phase === 'fire' ? 'shotgun-recoil' : ''}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

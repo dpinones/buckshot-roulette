@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { type Address } from 'viem'
 import { type GameState } from '../hooks/useGameState'
 import { type GameEvent } from '../hooks/useEventLog'
@@ -13,6 +13,16 @@ import { EventLogNotebook } from './EventLogNotebook'
 import { TurnFlash } from './TurnFlash'
 import { GameOverOverlay } from './GameOverOverlay'
 import { PlayerStatsModal } from './PlayerStatsModal'
+import { ReadyGoOverlay } from './ReadyGoOverlay'
+
+export type ShotAction = {
+  phase: 'prepare' | 'fire'
+  shooterIdx: number
+  targetIdx: number
+  isSelf: boolean
+  isLive: boolean
+  damage: number
+} | null
 
 interface GameBoardProps {
   state: GameState
@@ -38,10 +48,19 @@ function getNextAliveIdx(alive: readonly boolean[], fromIdx: number): number {
 export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) {
   const [selectedPlayer, setSelectedPlayer] = useState<{ address: Address; label: string } | null>(null)
   const [isThinking, setIsThinking] = useState(false)
+  const [showReadyGo, setShowReadyGo] = useState(true)
+  const [shotAction, setShotAction] = useState<ShotAction>(null)
+  const [damagedIdx, setDamagedIdx] = useState<number | null>(null)
   const players = state.players
   const names = usePlayerNames(players)
-  const { playTurnSfx } = useAudio()
+  const { playTurnSfx, playShotSfx, playBlankSfx, playPrepareSfx, playReloadSfx } = useAudio()
   const prevTurnRef = useRef(state.currentTurnIndex)
+  const shotTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  const clearShotTimers = useCallback(() => {
+    shotTimersRef.current.forEach(t => clearTimeout(t))
+    shotTimersRef.current = []
+  }, [])
 
   function getOnChainName(index: number): string {
     return names[players[index]?.toLowerCase()] || ''
@@ -55,20 +74,26 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
   const isFinished = state.phase === Phase.FINISHED
   const nextAliveIdx = getNextAliveIdx(state.alive, state.currentTurnIndex)
 
+  // Synchronous shot detection: freeze character positions during shot animation
+  // This is computed during render so CharacterStage sees the override immediately
+  const shotJustHappened = prevState != null && state.shellsRemaining < prevState.shellsRemaining
+  const centerOverrideIdx = shotJustHappened ? prevState.currentTurnIndex : undefined
+
   // Play turn SFX and toggle thinking on turn change
   useEffect(() => {
+    if (showReadyGo) return
     if (state.currentTurnIndex !== prevTurnRef.current) {
       playTurnSfx()
       setIsThinking(false)
-      // Show thinking bubble after a short delay
       const timer = setTimeout(() => setIsThinking(true), 1500)
       prevTurnRef.current = state.currentTurnIndex
       return () => clearTimeout(timer)
     }
-  }, [state.currentTurnIndex, playTurnSfx])
+  }, [state.currentTurnIndex, playTurnSfx, showReadyGo])
 
   // Hide thinking when items are used or shots happen
   useEffect(() => {
+    if (showReadyGo) return
     if (prevState && (
       state.shellsRemaining !== prevState.shellsRemaining ||
       JSON.stringify(state.playerItems) !== JSON.stringify(prevState.playerItems)
@@ -77,7 +102,98 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
       const timer = setTimeout(() => setIsThinking(true), 800)
       return () => clearTimeout(timer)
     }
-  }, [state.shellsRemaining, state.playerItems])
+  }, [state.shellsRemaining, state.playerItems, showReadyGo])
+
+  // Shot detection: compare shells remaining to detect a shot was fired
+  useEffect(() => {
+    if (showReadyGo) return
+    if (!prevState) return
+    if (state.shellsRemaining >= prevState.shellsRemaining) return
+
+    // A shell was fired
+    const shooterIdx = prevState.currentTurnIndex
+
+    // Check if anyone took damage
+    let targetIdx = shooterIdx
+    let isLive = false
+    let damage = 0
+    for (let i = 0; i < state.hpList.length; i++) {
+      const hpDiff = (prevState.hpList[i] ?? 0) - (state.hpList[i] ?? 0)
+      if (hpDiff > 0) {
+        targetIdx = i
+        isLive = true
+        damage = hpDiff
+        break
+      }
+    }
+
+    // For blank shots: if turn didn't change → self-shot blank (extra turn), else → opponent blank
+    if (!isLive) {
+      if (state.currentTurnIndex === prevState.currentTurnIndex) {
+        targetIdx = shooterIdx // self-shot blank
+      } else {
+        // Shot opponent with blank — find who the next alive player was (the probable target)
+        const aliveIdxs = prevState.alive.map((a, i) => a ? i : -1).filter(i => i >= 0)
+        const shooterPos = aliveIdxs.indexOf(shooterIdx)
+        if (shooterPos >= 0 && aliveIdxs.length > 1) {
+          targetIdx = aliveIdxs[(shooterPos + 1) % aliveIdxs.length]
+        }
+      }
+    }
+
+    const isSelf = shooterIdx === targetIdx
+
+    console.log('[SHOT]', {
+      shooterIdx,
+      targetIdx,
+      isSelf,
+      isLive,
+      damage,
+      prevShells: prevState.shellsRemaining,
+      newShells: state.shellsRemaining,
+      prevTurn: prevState.currentTurnIndex,
+      newTurn: state.currentTurnIndex,
+      prevHp: [...prevState.hpList],
+      newHp: [...state.hpList],
+    })
+
+    // Animation sequence
+    clearShotTimers()
+
+    // t=0: prepare
+    setShotAction({ phase: 'prepare', shooterIdx, targetIdx, isSelf, isLive, damage })
+    playPrepareSfx()
+
+    // t=800ms: fire
+    const t1 = setTimeout(() => {
+      setShotAction({ phase: 'fire', shooterIdx, targetIdx, isSelf, isLive, damage })
+      if (isLive) {
+        playShotSfx()
+        setDamagedIdx(targetIdx)
+      } else {
+        playBlankSfx()
+      }
+    }, 800)
+
+    // t=2000ms: clear
+    const t2 = setTimeout(() => {
+      setShotAction(null)
+      setDamagedIdx(null)
+    }, 2000)
+
+    shotTimersRef.current = [t1, t2]
+
+    return () => clearShotTimers()
+  }, [state.shellsRemaining, state.hpList, prevState, clearShotTimers, playShotSfx, playBlankSfx, playPrepareSfx, showReadyGo])
+
+  // Shell reload detection
+  useEffect(() => {
+    if (showReadyGo) return
+    if (!prevState) return
+    if (state.shellsRemaining > prevState.shellsRemaining) {
+      playReloadSfx()
+    }
+  }, [state.shellsRemaining, prevState, playReloadSfx, showReadyGo])
 
   return (
     <div className="relative w-screen h-screen overflow-hidden flex flex-col select-none">
@@ -114,6 +230,7 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
             isNext={i === nextAliveIdx && i !== state.currentTurnIndex}
             isAlive={state.alive[i] ?? false}
             label={getOnChainName(i)}
+            isDamaged={damagedIdx === i}
             onClick={() => setSelectedPlayer({ address: player, label: getOnChainName(i) })}
           />
         ))}
@@ -124,8 +241,11 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
         players={players}
         alive={state.alive}
         currentTurnIndex={state.currentTurnIndex}
+        centerOverrideIdx={centerOverrideIdx}
         names={names}
         isThinking={isThinking}
+        shotAction={shotAction}
+        damagedIdx={damagedIdx}
       />
 
       {/* Zone 3: Bottom — Table */}
@@ -135,6 +255,7 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
         round={state.currentRound}
         maxHp={maxHp}
         prize={state.prizePoolFormatted}
+        shotAction={shotAction}
       />
 
       {/* Floating event log */}
@@ -168,6 +289,9 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
           onClose={() => setSelectedPlayer(null)}
         />
       )}
+
+      {/* Ready / Go intro */}
+      {showReadyGo && <ReadyGoOverlay onDone={() => setShowReadyGo(false)} />}
     </div>
   )
 }

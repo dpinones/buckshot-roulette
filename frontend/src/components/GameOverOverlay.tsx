@@ -103,7 +103,7 @@ export function GameOverOverlay({ winner, label, prize, players, names, onHome, 
       <img
         src={winnerChar.img}
         alt={label}
-        className="h-[260px] w-auto"
+        className="h-[33%] w-auto"
         style={{
           filter: 'drop-shadow(0 0 20px rgba(255, 215, 0, 0.6))',
           animation: 'winBounce 0.5s ease infinite alternate',
@@ -130,7 +130,7 @@ export function GameOverOverlay({ winner, label, prize, players, names, onHome, 
             key={i}
             src={loser.img}
             alt={loser.name}
-            className="h-20 w-auto opacity-60 -rotate-[10deg]"
+            className="h-25 w-auto opacity-60 -rotate-[10deg]"
             style={{ filter: 'grayscale(0.8) brightness(0.5) drop-shadow(2px 3px 4px rgba(0,0,0,0.3))' }}
           />
         ))}

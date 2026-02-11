@@ -1,12 +1,15 @@
+import type { ShotAction } from './GameBoard'
+
 interface TableAreaProps {
   liveShells: number
   blankShells: number
   round: number
   maxHp: number
   prize: string
+  shotAction: ShotAction
 }
 
-export function TableArea({ liveShells, blankShells, round, maxHp, prize }: TableAreaProps) {
+export function TableArea({ liveShells, blankShells, round, maxHp, prize, shotAction }: TableAreaProps) {
   const shells = [
     ...Array(liveShells).fill('live'),
     ...Array(blankShells).fill('blank'),
@@ -27,7 +30,8 @@ export function TableArea({ liveShells, blankShells, round, maxHp, prize }: Tabl
           <img
             src="/characters/shotgun.png"
             alt="shotgun"
-            className="w-[min(40vw,360px)] h-auto drop-shadow-[4px_5px_6px_rgba(0,0,0,0.4)] -rotate-[5deg]"
+            className="w-[min(50vw,450px)] h-auto drop-shadow-[4px_5px_6px_rgba(0,0,0,0.4)] -rotate-[5deg] transition-opacity duration-200"
+            style={{ opacity: shotAction ? 0 : 1 }}
           />
         </div>
 

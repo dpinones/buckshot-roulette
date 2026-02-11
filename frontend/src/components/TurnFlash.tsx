@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface TurnFlashProps {
   currentTurnIndex: number
@@ -6,16 +6,16 @@ interface TurnFlashProps {
 
 export function TurnFlash({ currentTurnIndex }: TurnFlashProps) {
   const [active, setActive] = useState(false)
-  const [prevTurn, setPrevTurn] = useState(currentTurnIndex)
+  const prevTurnRef = useRef(currentTurnIndex)
 
   useEffect(() => {
-    if (currentTurnIndex !== prevTurn) {
+    if (currentTurnIndex !== prevTurnRef.current) {
+      prevTurnRef.current = currentTurnIndex
       setActive(true)
-      setPrevTurn(currentTurnIndex)
       const timer = setTimeout(() => setActive(false), 200)
       return () => clearTimeout(timer)
     }
-  }, [currentTurnIndex, prevTurn])
+  }, [currentTurnIndex])
 
   return (
     <div

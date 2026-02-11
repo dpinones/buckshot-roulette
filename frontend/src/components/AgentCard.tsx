@@ -11,6 +11,7 @@ interface AgentCardProps {
   isNext: boolean
   isAlive: boolean
   label: string
+  isDamaged?: boolean
   onClick?: () => void
 }
 
@@ -23,15 +24,11 @@ export function AgentCard({
   isNext,
   isAlive,
   label,
+  isDamaged,
   onClick,
 }: AgentCardProps) {
   const char = getCharacter(label)
   const isDead = !isAlive
-
-  let cardClass = 'agent-card-root'
-  if (isDead) cardClass += ' dead'
-  else if (isCurrentTurn) cardClass += ' active'
-  else if (isNext) cardClass += ' next'
 
   return (
     <div
@@ -47,6 +44,7 @@ export function AgentCard({
               ? 'bg-[rgba(200,230,200,0.92)] border-3 border-[#FFE082] shadow-[0_4px_12px_rgba(0,0,0,0.18),0_2px_4px_rgba(0,0,0,0.1)]'
               : 'bg-[rgba(200,230,200,0.92)] border-3 border-alive shadow-[0_4px_12px_rgba(0,0,0,0.18),0_2px_4px_rgba(0,0,0,0.1)]'
         }
+        ${isDamaged ? 'card-damage' : ''}
         ${onClick ? 'cursor-pointer' : ''}
       `}
     >

@@ -43,6 +43,10 @@ export function useAudio() {
   const musicRef = useRef<HTMLAudioElement | null>(null)
   const lastTrackRef = useRef(-1)
   const turnSfxRef = useRef<HTMLAudioElement | null>(null)
+  const shotConfettiSfxRef = useRef<HTMLAudioElement | null>(null)
+  const shotPrepareSfxRef = useRef<HTMLAudioElement | null>(null)
+  const shotBlankSfxRef = useRef<HTMLAudioElement | null>(null)
+  const shotReloadSfxRef = useRef<HTMLAudioElement | null>(null)
   const startedRef = useRef(false)
 
   const playRandomMusic = useCallback(() => {
@@ -62,27 +66,38 @@ export function useAudio() {
       }
     })
 
-    player.addEventListener('ended', () => {
-      playRandomMusic()
-    }, { once: true })
-
     fadeIn(player)
   }, [])
 
-  // Start music on first user click
   useEffect(() => {
     turnSfxRef.current = new Audio('/sfx/turn.mp3')
+    shotConfettiSfxRef.current = new Audio('/sfx/shotgun_confetti.mp3')
+    shotPrepareSfxRef.current = new Audio('/sfx/shotgun_prepare.mp3')
+    shotBlankSfxRef.current = new Audio('/sfx/shotgun_blank.mp3')
+    shotReloadSfxRef.current = new Audio('/sfx/shotgun_reload.mp3')
 
-    function handleClick() {
+    function startMusic() {
       if (startedRef.current) return
       startedRef.current = true
       playRandomMusic()
-      document.removeEventListener('click', handleClick)
     }
 
-    document.addEventListener('click', handleClick)
+    // Try to play immediately — if browser allows it, great
+    const probe = new Audio(MUSIC_TRACKS[0])
+    probe.volume = 0
+    probe.play().then(() => {
+      probe.pause()
+      startMusic()
+    }).catch(() => {
+      // Autoplay blocked — fall back to click listener
+      function handleClick() {
+        startMusic()
+        document.removeEventListener('click', handleClick)
+      }
+      document.addEventListener('click', handleClick)
+    })
+
     return () => {
-      document.removeEventListener('click', handleClick)
       if (musicRef.current) {
         musicRef.current.pause()
         musicRef.current = null
@@ -97,5 +112,33 @@ export function useAudio() {
     }
   }, [])
 
-  return { playTurnSfx }
+  const playShotSfx = useCallback(() => {
+    if (shotConfettiSfxRef.current) {
+      shotConfettiSfxRef.current.currentTime = 0
+      shotConfettiSfxRef.current.play().catch(() => {})
+    }
+  }, [])
+
+  const playPrepareSfx = useCallback(() => {
+    if (shotPrepareSfxRef.current) {
+      shotPrepareSfxRef.current.currentTime = 0
+      shotPrepareSfxRef.current.play().catch(() => {})
+    }
+  }, [])
+
+  const playBlankSfx = useCallback(() => {
+    if (shotBlankSfxRef.current) {
+      shotBlankSfxRef.current.currentTime = 0
+      shotBlankSfxRef.current.play().catch(() => {})
+    }
+  }, [])
+
+  const playReloadSfx = useCallback(() => {
+    if (shotReloadSfxRef.current) {
+      shotReloadSfxRef.current.currentTime = 0
+      shotReloadSfxRef.current.play().catch(() => {})
+    }
+  }, [])
+
+  return { playTurnSfx, playShotSfx, playBlankSfx, playPrepareSfx, playReloadSfx }
 }
