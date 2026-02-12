@@ -23,6 +23,14 @@ const AGENT_NAME =
   process.env.AGENT_NAME || `Agent-${Math.random().toString(36).slice(2, 8)}`;
 const POLL_MS = 2000;
 
+// ─── LLM Config ─────────────────────────────────────────────────
+const LLM_API_KEY = process.env.LLM_API_KEY || "";
+const LLM_API_URL = process.env.LLM_API_URL || "https://api.openai.com/v1/chat/completions";
+const LLM_MODEL = process.env.LLM_MODEL || "gpt-4o-mini";
+const LLM_TIMEOUT_MS = 10_000; // max time to wait for LLM response
+const MIN_TURN_TIME_MS = 20_000; // skip LLM if less than this time left on turn
+const PERSONALITY = process.env.PERSONALITY || "You are a strategic player. Analyze probabilities, use items wisely, and make optimal decisions to survive and win.";
+
 // ─── Contract Addresses (Monad Testnet) ─────────────────────────
 const ADDRESSES = {
   playerProfile: "0x486cDA4bB851C0A16c8D3feD9f28Ef77f850a42A" as Address,
@@ -242,24 +250,213 @@ function log(...args: unknown[]) {
 }
 
 // ================================================================
-// YOUR AGENT LOGIC — Replace this function with your own strategy
+// FALLBACK STRATEGY (deterministic — used when LLM is unavailable)
 // ================================================================
-// Input:  state (GameState) — full game state including your items,
-//         shell probabilities, opponent info, etc.
-// Output: Action[] — list of actions to take this turn.
-//         Use items first, MUST end with a shoot action.
-//
-// Item IDs: 1=MAGNIFYING_GLASS, 2=BEER, 3=HANDSAW, 4=CIGARETTES
-//
-// The default picks a random opponent and shoots.
-// See BUCKSHOT_ROULETTE_SKILL.md Section 4 for a smarter strategy.
+function fallbackStrategy(state: GameState): Action[] {
+  const actions: Action[] = [];
+  const used = new Set<number>();
+  const findItem = (id: number) =>
+    state.myItems.findIndex((it, i) => it === id && !used.has(i));
+  const aliveOpps = state.opponents.filter((o) => o.alive);
+  if (aliveOpps.length === 0) return [{ type: "shootSelf" }];
+  const target = aliveOpps.reduce((min, o) => (o.hp < min.hp ? o : min)).address;
+
+  const knownShell = state.shellKnown
+    ? state.knownShellIsLive ? "live" : "blank"
+    : null;
+  const allLive = state.blankRemaining === 0 && state.shellsRemaining > 0;
+  const allBlank = state.liveRemaining === 0 && state.shellsRemaining > 0;
+
+  // Known blank → shoot self for extra turn
+  if (knownShell === "blank") return [{ type: "shootSelf" }];
+
+  // Known live → handsaw + shoot opponent
+  if (knownShell === "live") {
+    if (!state.sawActive) {
+      const i = findItem(3);
+      if (i !== -1) { actions.push({ type: "useItem", itemIndex: i }); used.add(i); }
+    }
+    return [...actions, { type: "shootOpponent", target }];
+  }
+
+  // Unknown shell → use magnifying glass if available
+  const glass = findItem(1);
+  if (glass !== -1) {
+    actions.push({ type: "useItem", itemIndex: glass }); used.add(glass);
+    // After glass we'll see the result next call, shoot opponent for now
+    return [...actions, { type: "shootOpponent", target }];
+  }
+
+  // Heal if low HP
+  if (state.myHp < 3) {
+    const i = findItem(4);
+    if (i !== -1) { actions.push({ type: "useItem", itemIndex: i }); used.add(i); }
+  }
+
+  if (allLive) {
+    if (!state.sawActive) {
+      const i = findItem(3);
+      if (i !== -1) { actions.push({ type: "useItem", itemIndex: i }); used.add(i); }
+    }
+    return [...actions, { type: "shootOpponent", target }];
+  }
+  if (allBlank) return [...actions, { type: "shootSelf" }];
+
+  // High live probability → eject with beer
+  if (state.liveProbability > 0.5) {
+    const i = findItem(2);
+    if (i !== -1) { actions.push({ type: "useItem", itemIndex: i }); used.add(i); }
+  }
+
+  return [...actions, { type: "shootOpponent", target }];
+}
+
 // ================================================================
-function chooseAction(state: GameState): Action[] {
-  const aliveOpponents = state.opponents.filter((o) => o.alive);
-  if (aliveOpponents.length === 0) return [{ type: "shootSelf" }];
-  const target =
-    aliveOpponents[Math.floor(Math.random() * aliveOpponents.length)].address;
-  return [{ type: "shootOpponent", target }];
+// LLM DECISION MAKING (primary — asks the model for a decision)
+// ================================================================
+function buildGamePrompt(state: GameState): string {
+  const aliveOpps = state.opponents.filter((o) => o.alive);
+  const timeLeft = Number(state.turnDeadline) * 1000 - Date.now();
+  const timeLeftSec = Math.max(0, Math.floor(timeLeft / 1000));
+
+  return `It's your turn in Buckshot Roulette. You have ${timeLeftSec}s to decide.
+
+YOUR STATUS:
+- HP: ${state.myHp}/3
+- Items: [${state.myItems.map((id, idx) => id !== 0 ? `${idx}:${ITEM_NAMES[id]}` : null).filter(Boolean).join(", ")}]
+- Handsaw active: ${state.sawActive} (next shot deals 2 damage)
+
+SHELL INFO:
+- Remaining: ${state.shellsRemaining} (${state.liveRemaining} live, ${state.blankRemaining} blank)
+- Live probability: ${(state.liveProbability * 100).toFixed(0)}%
+- Current shell known: ${state.shellKnown ? (state.knownShellIsLive ? "YES - LIVE" : "YES - BLANK") : "NO"}
+
+OPPONENTS:
+${aliveOpps.map((o) => `- ${o.address.slice(0, 10)}... HP:${o.hp} Items:[${o.items.filter(i => i !== 0).map(i => ITEM_NAMES[i]).join(",")}]`).join("\n")}
+
+AVAILABLE ACTIONS:
+- useItem(itemIndex) — use one of your items (does NOT end turn)
+- shootOpponent(target) — shoot an opponent (ends turn)
+- shootSelf — shoot yourself. If blank, you get an extra turn!
+
+RULES:
+- You MUST end with exactly one shoot action (shootOpponent or shootSelf)
+- You can use multiple items before shooting
+- Shooting self with a blank gives you another turn (powerful!)
+- Item indices shift after use (swap-and-pop), so use items in order from the response
+
+Respond ONLY with a JSON array of actions. Examples:
+[{"type":"shootSelf"}]
+[{"type":"useItem","itemIndex":0},{"type":"shootOpponent","target":"0xABC..."}]
+[{"type":"useItem","itemIndex":1},{"type":"useItem","itemIndex":0},{"type":"shootSelf"}]`;
+}
+
+async function askLLM(state: GameState): Promise<Action[] | null> {
+  if (!LLM_API_KEY) return null;
+
+  // Check if we have enough time for an LLM call
+  const timeLeftMs = Number(state.turnDeadline) * 1000 - Date.now();
+  if (timeLeftMs < MIN_TURN_TIME_MS) {
+    log(`Only ${Math.floor(timeLeftMs / 1000)}s left on turn, skipping LLM`);
+    return null;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+
+    const res = await fetch(LLM_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LLM_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        messages: [
+          { role: "system", content: `You are an AI agent playing Buckshot Roulette, an on-chain game.\n\n${PERSONALITY}\n\nRespond ONLY with a valid JSON array of actions. No explanation, no markdown, just the JSON array.` },
+          { role: "user", content: buildGamePrompt(state) },
+        ],
+        temperature: 0.7,
+        max_tokens: 300,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      log(`LLM API error: ${res.status} ${res.statusText}`);
+      return null;
+    }
+
+    const data = await res.json();
+    const content: string = data.choices?.[0]?.message?.content?.trim() || "";
+    log("LLM raw:", content);
+
+    // Extract JSON array from response (handles ```json wrapping)
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) { log("LLM: no JSON array found"); return null; }
+
+    const parsed = JSON.parse(jsonMatch[0]) as any[];
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+
+    // Validate actions
+    const aliveAddrs = new Set(
+      state.opponents.filter((o) => o.alive).map((o) => o.address.toLowerCase())
+    );
+    const validActions: Action[] = [];
+    for (const a of parsed) {
+      if (a.type === "useItem" && typeof a.itemIndex === "number") {
+        if (a.itemIndex >= 0 && a.itemIndex < state.myItems.length && state.myItems[a.itemIndex] !== 0) {
+          validActions.push({ type: "useItem", itemIndex: a.itemIndex });
+        }
+      } else if (a.type === "shootOpponent" && typeof a.target === "string") {
+        if (aliveAddrs.has(a.target.toLowerCase())) {
+          validActions.push({ type: "shootOpponent", target: a.target as Address });
+        }
+      } else if (a.type === "shootSelf") {
+        validActions.push({ type: "shootSelf" });
+      }
+    }
+
+    // Must end with a shoot action
+    const lastAction = validActions[validActions.length - 1];
+    if (!lastAction || (lastAction.type !== "shootOpponent" && lastAction.type !== "shootSelf")) {
+      log("LLM: actions don't end with shoot");
+      return null;
+    }
+
+    // Make sure only the last action is a shoot
+    const shootCount = validActions.filter(
+      (a) => a.type === "shootOpponent" || a.type === "shootSelf"
+    ).length;
+    if (shootCount !== 1) {
+      log("LLM: multiple shoot actions, invalid");
+      return null;
+    }
+
+    return validActions;
+  } catch (e: any) {
+    if (e.name === "AbortError") {
+      log("LLM: timed out");
+    } else {
+      log("LLM error:", e.message?.slice(0, 100));
+    }
+    return null;
+  }
+}
+
+// ================================================================
+// CHOOSE ACTION — LLM first, deterministic fallback
+// ================================================================
+async function chooseAction(state: GameState): Promise<Action[]> {
+  const llmActions = await askLLM(state);
+  if (llmActions) {
+    log("Using LLM decision");
+    return llmActions;
+  }
+  log("Using fallback strategy");
+  return fallbackStrategy(state);
 }
 
 // ─── Ensure Profile ─────────────────────────────────────────────
@@ -534,7 +731,7 @@ async function playGame(gameId: bigint) {
 
     log(`MY TURN | HP: ${state.myHp} | Shells: ${state.shellsRemaining} (${state.liveRemaining}L/${state.blankRemaining}B) | Items: [${state.myItems.map((i) => ITEM_NAMES[i]).join(", ")}]`);
 
-    const actions = chooseAction(state);
+    const actions = await chooseAction(state);
     log("Actions:", actions.map((a) => {
       if (a.type === "useItem") return `useItem(${a.itemIndex}:${ITEM_NAMES[state.myItems[a.itemIndex]] || "?"})`;
       if (a.type === "shootOpponent") return `shoot(${a.target.slice(0, 10)}...)`;
@@ -550,6 +747,8 @@ async function playGame(gameId: bigint) {
 async function main() {
   log(`Wallet: ${MY_ADDRESS}`);
   log(`Buy-in: ${formatEther(BUY_IN)} MON | Players: ${PLAYER_COUNT}`);
+  if (LLM_API_KEY) log(`LLM: ${LLM_MODEL} via ${LLM_API_URL}`);
+  else log("No LLM_API_KEY — using deterministic fallback strategy");
 
   await ensureProfile();
 
