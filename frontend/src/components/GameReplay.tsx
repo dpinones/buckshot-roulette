@@ -224,7 +224,6 @@ export function GameReplay({ gameId, onBack }: GameReplayProps) {
         alive={gameState.alive}
         currentTurnIndex={gameState.currentTurnIndex}
         names={names}
-        isThinking={false}
       />
 
       {/* Zone 3: Bottom — Table */}

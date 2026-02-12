@@ -1,7 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { type Address } from 'viem'
 import { getCharacter } from '../config/characters'
-import { ThinkingBubble } from './ThinkingBubble'
 import type { ShotAction } from './GameBoard'
 
 interface CharacterStageProps {
@@ -10,9 +9,8 @@ interface CharacterStageProps {
   currentTurnIndex: number
   centerOverrideIdx?: number
   names: Record<string, string>
-  isThinking: boolean
-  shotAction: ShotAction
-  damagedIdx: number | null
+  shotAction?: ShotAction
+  damagedIdx?: number | null
 }
 
 type PosClass = 'pos-center' | 'pos-left' | 'pos-right' | 'pos-off-left' | 'pos-off-right' | 'pos-hidden'
@@ -39,7 +37,7 @@ function getPrevAliveIdx(alive: readonly boolean[], fromIdx: number): number {
 
 const ALL_POS: PosClass[] = ['pos-center', 'pos-left', 'pos-right', 'pos-off-left', 'pos-off-right', 'pos-hidden']
 
-export function CharacterStage({ players, alive, currentTurnIndex, centerOverrideIdx, names, isThinking, shotAction, damagedIdx }: CharacterStageProps) {
+export function CharacterStage({ players, alive, currentTurnIndex, centerOverrideIdx, names, shotAction, damagedIdx }: CharacterStageProps) {
   const positionsRef = useRef<Record<number, PosClass>>({})
   const blinkTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
   const stageRef = useRef<HTMLDivElement>(null)
@@ -208,17 +206,12 @@ export function CharacterStage({ players, alive, currentTurnIndex, centerOverrid
       <div ref={stageRef} className="absolute inset-0 overflow-visible">
         {players.map((_, i) => {
           const char = getCharacter(getOnChainName(i))
-          const isCenter = posMap[i] === 'pos-center'
           return (
             <div
               key={i}
               data-char-idx={i}
               className="char-slot pos-hidden"
             >
-              {/* Thinking bubble — only on center character, hidden during shot */}
-              {isCenter && isThinking && alive[i] && !shotAction && (
-                <ThinkingBubble text={char.thought} />
-              )}
               <img
                 className="char-img"
                 src={char.img}

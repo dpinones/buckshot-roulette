@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { type Address, parseEther, formatEther } from 'viem'
 import { useAccount } from 'wagmi'
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { type GameState } from '../hooks/useGameState'
 import { useBetting, type DecodedBet } from '../hooks/useBetting'
 import { usePlayerNames } from '../hooks/usePlayerNames'
 import { getCharacter } from '../config/characters'
+import { BurnerWallets } from './BurnerWallets'
+import { isLocal } from '../config/wagmi'
 
 interface BettingPanelProps {
   gameId: bigint
@@ -14,24 +17,102 @@ interface BettingPanelProps {
 
 type BetTab = 'winner' | 'first_death' | 'over_kills'
 
-function shortAddr(addr: string): string {
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+const AGENT_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  calc: { bg: 'rgba(137,207,240,0.25)', border: '#89CFF0', text: '#4A90B8' },
+  agro: { bg: 'rgba(255,107,138,0.2)', border: '#FF6B8A', text: '#D44A6A' },
+  trap: { bg: 'rgba(119,221,119,0.2)', border: '#77DD77', text: '#4A9F4A' },
+  filo: { bg: 'rgba(195,177,225,0.25)', border: '#C3B1E1', text: '#7A6AA0' },
+  apre: { bg: 'rgba(255,213,128,0.25)', border: '#FFD580', text: '#B8923A' },
 }
 
-function CountdownTimer({ timeLeft }: { timeLeft: number }) {
-  const minutes = Math.floor(timeLeft / 60)
-  const seconds = timeLeft % 60
-  const isUrgent = timeLeft < 10
+function getAgentStyle(colorKey: string) {
+  return AGENT_COLORS[colorKey] || AGENT_COLORS.filo
+}
+
+const GUIDE_STEPS = [
+  { num: 1, title: 'Pick a character', desc: 'Tap on your favorite player above' },
+  { num: 2, title: 'Choose bet type', desc: 'Winner, First Death, or Over/Under' },
+  { num: 3, title: 'Set your wager', desc: 'Enter how much ETH to bet' },
+  { num: 4, title: 'Place your bet!', desc: 'Confirm and watch the game unfold' },
+]
+
+/* Animated character with blinking */
+function BettingCharacter({
+  char,
+  index,
+  isSelected,
+  onClick,
+  label
+}: {
+  char: ReturnType<typeof getCharacter>
+  index: number
+  isSelected: boolean
+  onClick: () => void
+  label: string
+}) {
+  const imgRef = useRef<HTMLImageElement>(null)
+  const blinkTimerRef = useRef<ReturnType<typeof setTimeout>>()
+
+  useEffect(() => {
+    const preload = new Image()
+    preload.src = char.blinkImg
+
+    function scheduleBlink() {
+      if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current)
+      const delay = 2000 + Math.random() * 4000
+      blinkTimerRef.current = setTimeout(doBlink, delay)
+    }
+
+    function doBlink() {
+      if (!imgRef.current) { scheduleBlink(); return }
+      imgRef.current.src = char.blinkImg
+      const blinkDuration = 120 + Math.random() * 80
+      setTimeout(() => {
+        if (!imgRef.current) return
+        imgRef.current.src = char.img
+        if (Math.random() < 0.3) {
+          setTimeout(() => {
+            if (!imgRef.current) return
+            imgRef.current.src = char.blinkImg
+            setTimeout(() => {
+              if (!imgRef.current) return
+              imgRef.current.src = char.img
+              scheduleBlink()
+            }, blinkDuration)
+          }, 100)
+        } else {
+          scheduleBlink()
+        }
+      }, blinkDuration)
+    }
+
+    const initialDelay = 500 + Math.random() * 3000
+    blinkTimerRef.current = setTimeout(doBlink, initialDelay)
+    return () => { if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current) }
+  }, [char.img, char.blinkImg])
+
+  const style = getAgentStyle(char.color)
 
   return (
-    <div className="glass-panel inline-block px-8 py-3">
-      <div className="font-display text-[10px] text-text-light mb-1">
-        Betting closes in
-      </div>
-      <div className={`font-display text-5xl tracking-wider ${
-        isUrgent ? 'text-blood animate-pulse' : 'text-gold'
-      }`}>
-        {minutes}:{seconds.toString().padStart(2, '0')}
+    <div
+      className={`betting-char ${isSelected ? 'selected' : ''}`}
+      onClick={onClick}
+    >
+      <img
+        ref={imgRef}
+        src={char.img}
+        alt={char.name}
+        className="char-img"
+      />
+      <div
+        className="char-label"
+        style={{
+          background: isSelected ? style.bg : 'rgba(255,253,245,0.9)',
+          borderColor: isSelected ? style.border : 'rgba(255,255,255,0.8)',
+          color: style.text,
+        }}
+      >
+        {label}
       </div>
     </div>
   )
@@ -75,320 +156,320 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
   const myBetsCount = betting.state?.myBets?.amounts?.length ?? 0
   const myBetsTotal = betting.state?.myBets?.amounts?.reduce((sum, a) => sum + a, 0n) ?? 0n
 
+  const tabColors: Record<BetTab, { active: string; hover: string }> = {
+    winner: { active: 'bg-[rgba(255,213,128,0.3)] border-[#FFD580] text-text-dark', hover: 'hover:border-[#FFD580]/60' },
+    first_death: { active: 'bg-[rgba(255,107,138,0.2)] border-[#FF6B8A] text-[#D44A6A]', hover: 'hover:border-[#FF6B8A]/50' },
+    over_kills: { active: 'bg-[rgba(195,177,225,0.25)] border-[#C3B1E1] text-[#7A6AA0]', hover: 'hover:border-[#C3B1E1]/60' },
+  }
+
+  // Countdown
+  const minutes = Math.floor(betting.timeLeft / 60)
+  const seconds = betting.timeLeft % 60
+  const isUrgent = betting.timeLeft < 10 && betting.timeLeft > 0
+
+  // Selected player info
+  const selChar = selectedPlayer ? getCharacter(getOnChainName(selectedPlayer)) : null
+  const selStyle = selChar ? getAgentStyle(selChar.color) : null
+
   return (
     <div className="relative min-h-screen flex flex-col">
-      {/* Background image + overlay */}
+      {/* Background */}
       <div className="fixed inset-0 z-0" style={{ background: "url('/bg-lobby.png') center/cover no-repeat" }} />
       <div className="fixed inset-0 z-0 bg-meadow/70" />
 
-      {/* Header */}
-      <header className="relative z-10 px-6 py-3">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+      {/* Wallet not connected overlay */}
+      {!wallet && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-meadow/60 backdrop-blur-sm">
+          <div className="glass-panel p-8 max-w-md w-full mx-4 text-center space-y-5" style={{ background: 'rgba(255,253,245,0.95)' }}>
+            <div className="space-y-2">
+              <h2 className="font-display text-2xl text-text-dark">Connect Wallet</h2>
+              <p className="font-data text-sm text-text-light">
+                You need a connected wallet to place bets on this game.
+              </p>
+            </div>
+            <div className="flex justify-center">
+              {isLocal ? <BurnerWallets /> : <ConnectButton />}
+            </div>
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="font-display text-sm text-text-light hover:text-text-dark transition-colors cursor-pointer"
+              >
+                Back to Lobby
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Header row */}
+      <header className="relative z-10 px-6 pt-4 pb-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             {onBack && (
               <button
                 onClick={onBack}
-                className="font-display text-[11px] text-text-dark px-3 py-1.5 bg-paper/80 backdrop-blur-sm border-2 border-text-dark/20 hover:border-gold rounded-[10px] shadow-[2px_2px_0_var(--color-paper-shadow)] cursor-pointer transition-colors hover:bg-[#FFF3D0]"
+                className="font-display text-sm text-text-dark px-4 py-2 bg-paper/80 backdrop-blur-sm border-2 border-text-dark/20 hover:border-gold rounded-[10px] shadow-[2px_2px_0_var(--color-paper-shadow)] cursor-pointer transition-colors hover:bg-[#FFF3D0]"
               >
                 LOBBY
               </button>
             )}
+            <div>
+              <h1 className="font-display text-3xl text-text-dark leading-tight">
+                Buckshot Roulette
+              </h1>
+              <span className="font-display text-xs px-2.5 py-0.5 bg-table-pink/30 text-[#9A6B8F] border border-table-border/40 rounded-lg">
+                Betting
+              </span>
+            </div>
           </div>
 
-          <div className="text-right">
-            <div className="font-data text-[10px] text-text-light">
-              Game #{gameId.toString()}
+          <div className="flex items-center gap-6">
+            {/* Timer */}
+            <div className="text-center">
+              <div className="font-data text-xs text-text-light">closes in</div>
+              <div className={`font-display text-3xl tracking-wider leading-tight ${
+                isUrgent ? 'text-blood animate-pulse' : betting.timeLeft === 0 ? 'text-text-light' : 'text-gold'
+              }`}>
+                {betting.timeLeft > 0
+                  ? `${minutes}:${seconds.toString().padStart(2, '0')}`
+                  : 'Waiting...'
+                }
+              </div>
             </div>
-            <div className="font-display text-sm text-gold">
-              {state.prizePoolFormatted} ETH
+            {/* Game info */}
+            <div className="text-right">
+              <div className="font-data text-sm text-text-light">Game #{gameId.toString()}</div>
+              <div className="font-display text-xl text-gold leading-tight">{state.prizePoolFormatted} ETH</div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Big Centered Title */}
-      <div className="relative z-10 text-center pt-1 pb-4">
-        <h1 className="font-display text-4xl md:text-5xl text-text-dark drop-shadow-[2px_3px_0_rgba(0,0,0,0.12)] animate-title-drop">
-          Buckshot Roulette
-        </h1>
-        <span className="inline-block mt-2 font-display text-[11px] px-3 py-1 bg-gold/20 text-text-dark border-2 border-gold/40 rounded-lg">
-          Betting
-        </span>
+      {/* Animated Characters — clickable to select player */}
+      <div className="relative z-10 betting-stage">
+        {players.map((player, i) => {
+          const char = getCharacter(getOnChainName(player))
+          return (
+            <BettingCharacter
+              key={player}
+              char={char}
+              index={i}
+              isSelected={selectedPlayer === player}
+              onClick={() => setSelectedPlayer(player)}
+              label={getLabel(player)}
+            />
+          )
+        })}
       </div>
 
-      <main className="relative z-10 flex-1 px-6 py-4">
-        <div className="max-w-5xl mx-auto space-y-8">
-          {/* Countdown */}
-          <div className="text-center space-y-2">
-            <CountdownTimer timeLeft={betting.timeLeft} />
-            {betting.timeLeft === 0 && (
-              <div className="font-data text-sm text-text-light animate-pulse">
-                Waiting for game to start...
-              </div>
-            )}
-          </div>
-
-          {/* Players list */}
-          <div className="glass-panel py-4 px-6">
-            <div className="flex justify-center gap-4">
-              {players.map((player, i) => {
-                const char = getCharacter(getOnChainName(player))
-                return (
-                  <div key={player} className="text-center space-y-1">
-                    <img
-                      src={char.img}
-                      alt={char.name}
-                      className="w-14 h-14 rounded-[10px] object-contain bg-white/50 p-1 mx-auto border-2 border-alive/40"
-                    />
-                    <div className="font-data text-[10px] text-text-dark">{getLabel(player)}</div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Bet Type Tabs */}
-          <div className="flex justify-center gap-1">
-            {(['winner', 'first_death', 'over_kills'] as BetTab[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => { setActiveTab(tab); setSelectedPlayer(null) }}
-                className={`font-display text-[11px] px-4 py-2 rounded-[10px] transition-colors cursor-pointer border-2 ${
-                  activeTab === tab
-                    ? 'bg-gold/20 text-text-dark border-gold shadow-[2px_2px_0_var(--color-paper-shadow)]'
-                    : 'text-text-light border-paper-shadow/40 hover:border-gold/40 hover:text-text-dark'
-                }`}
+      {/* Guide Steps */}
+      {myBetsCount === 0 && (
+        <div className="relative z-10 px-6 pt-6 pb-4">
+          <div className="max-w-5xl mx-auto flex justify-center gap-3">
+            {GUIDE_STEPS.map((step) => (
+              <div
+                key={step.num}
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 bg-paper/70 border-paper-shadow/30"
               >
-                {tab === 'winner' ? 'Winner' : tab === 'first_death' ? 'First Death' : 'Over/Under Kills'}
-              </button>
+                <span className="font-display text-sm w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-table-pink/25 text-[#9A6B8F]">
+                  {step.num}
+                </span>
+                <div>
+                  <div className="font-display text-sm leading-tight text-text-dark">
+                    {step.title}
+                  </div>
+                  <div className="font-data text-xs text-text-light/60">{step.desc}</div>
+                </div>
+              </div>
             ))}
           </div>
+        </div>
+      )}
 
-          {/* Bet Form */}
-          <div className="glass-panel !bg-[rgba(255,253,245,0.9)] p-6 space-y-5">
-            {/* Tab-specific content */}
-            {activeTab === 'winner' && (
-              <div className="space-y-3">
-                <div className="font-display text-sm text-text-dark">
-                  Who will win?
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {players.map((player, i) => {
-                    const char = getCharacter(getOnChainName(player))
-                    return (
-                      <button
-                        key={player}
-                        onClick={() => setSelectedPlayer(player)}
-                        className={`text-left p-3 rounded-[10px] border-2 transition-colors cursor-pointer flex items-center gap-2 ${
-                          selectedPlayer === player
-                            ? 'bg-gold/15 border-gold shadow-[2px_2px_0_var(--color-paper-shadow)]'
-                            : 'border-paper-shadow/40 hover:border-gold/40'
-                        }`}
-                      >
-                        <img src={char.img} alt="" className="w-8 h-8 rounded-md object-contain" />
-                        <div>
-                          <div className="font-display text-sm text-text-dark">{getLabel(player)}</div>
-                          <div className="font-data text-[10px] text-text-light">{char.role}</div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+      {/* Tabs */}
+      <div className="relative z-10 flex justify-center gap-2 py-2 px-6">
+        {(['winner', 'first_death', 'over_kills'] as BetTab[]).map((tab) => {
+          const colors = tabColors[tab]
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`font-display text-sm px-5 py-2 rounded-[10px] transition-all cursor-pointer border-2 ${
+                activeTab === tab
+                  ? `${colors.active} shadow-[2px_2px_0_var(--color-paper-shadow)]`
+                  : `text-text-light border-paper-shadow/40 ${colors.hover} hover:text-text-dark`
+              }`}
+            >
+              {tab === 'winner' ? 'Winner' : tab === 'first_death' ? 'First Death' : 'Over/Under Kills'}
+            </button>
+          )
+        })}
+      </div>
 
+      {/* Bet Form */}
+      <div className="relative z-10 flex-1 px-6 py-3 flex flex-col gap-3 min-h-0">
+        <div className="max-w-7xl mx-auto w-full glass-panel px-6 py-4 space-y-4" style={{ background: 'rgba(255,253,245,0.9)' }}>
+
+          {/* Selected player indicator */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {selChar ? (
+                <>
+                  <img src={selChar.img} alt="" className="w-10 h-10 rounded-lg object-contain" />
+                  <div>
+                    <span className="font-display text-lg" style={{ color: selStyle!.text }}>
+                      {getLabel(selectedPlayer!)}
+                    </span>
+                    <span className="font-data text-sm text-text-light ml-2">{selChar.role}</span>
+                  </div>
+                </>
+              ) : (
+                <span className="font-data text-base text-text-light">Select a character above</span>
+              )}
+            </div>
+
+            {/* Tab-specific inline controls */}
             {activeTab === 'first_death' && (
-              <div className="space-y-4">
-                <div className="font-display text-sm text-text-dark">
-                  Who dies at position?
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-data text-sm text-text-light">Death #</span>
-                  {[1, 2, 3].map((pos) => (
-                    <button
-                      key={pos}
-                      onClick={() => setSelectedPosition(pos)}
-                      className={`font-data text-sm px-3 py-1 rounded-[8px] border-2 transition-colors cursor-pointer ${
-                        selectedPosition === pos
-                          ? 'bg-blood/10 border-blood text-blood'
-                          : 'border-paper-shadow/40 text-text-light hover:border-blood/40'
-                      }`}
-                    >
-                      {pos}
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {players.map((player, i) => {
-                    const char = getCharacter(getOnChainName(player))
-                    return (
-                      <button
-                        key={player}
-                        onClick={() => setSelectedPlayer(player)}
-                        className={`text-left p-3 rounded-[10px] border-2 transition-colors cursor-pointer flex items-center gap-2 ${
-                          selectedPlayer === player
-                            ? 'bg-blood/10 border-blood'
-                            : 'border-paper-shadow/40 hover:border-blood/40'
-                        }`}
-                      >
-                        <img src={char.img} alt="" className="w-8 h-8 rounded-md object-contain" />
-                        <div>
-                          <div className="font-display text-sm text-text-dark">{getLabel(player)}</div>
-                          <div className="font-data text-[10px] text-text-light">{char.role}</div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
+              <div className="flex items-center gap-2.5">
+                <span className="font-data text-sm text-text-light">Death #</span>
+                {[1, 2, 3].map((pos) => (
+                  <button
+                    key={pos}
+                    onClick={() => setSelectedPosition(pos)}
+                    className={`font-data text-sm px-3.5 py-1 rounded-lg border-2 transition-colors cursor-pointer ${
+                      selectedPosition === pos
+                        ? 'bg-[rgba(255,107,138,0.15)] border-[#FF6B8A] text-[#D44A6A]'
+                        : 'border-paper-shadow/40 text-text-light hover:border-[#FF6B8A]/40'
+                    }`}
+                  >
+                    {pos}
+                  </button>
+                ))}
               </div>
             )}
 
             {activeTab === 'over_kills' && (
-              <div className="space-y-4">
-                <div className="font-display text-sm text-text-dark">
-                  Will player get X+ kills?
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {players.map((player, i) => {
-                    const char = getCharacter(getOnChainName(player))
-                    return (
-                      <button
-                        key={player}
-                        onClick={() => setSelectedPlayer(player)}
-                        className={`text-left p-3 rounded-[10px] border-2 transition-colors cursor-pointer flex items-center gap-2 ${
-                          selectedPlayer === player
-                            ? 'bg-gold/15 border-gold'
-                            : 'border-paper-shadow/40 hover:border-gold/40'
-                        }`}
-                      >
-                        <img src={char.img} alt="" className="w-8 h-8 rounded-md object-contain" />
-                        <div>
-                          <div className="font-display text-sm text-text-dark">{getLabel(player)}</div>
-                          <div className="font-data text-[10px] text-text-light">{char.role}</div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-3">
-                    <span className="font-data text-sm text-text-light">Kills {'>='}  </span>
-                    {[1, 2, 3].map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setSelectedThreshold(t)}
-                        className={`font-data text-sm px-3 py-1 rounded-[8px] border-2 transition-colors cursor-pointer ${
-                          selectedThreshold === t
-                            ? 'bg-gold/15 border-gold text-text-dark'
-                            : 'border-paper-shadow/40 text-text-light hover:border-gold/40'
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="font-data text-sm text-text-light">Kills {'>='}</span>
+                  {[1, 2, 3].map((t) => (
                     <button
-                      onClick={() => setBetYes(true)}
-                      className={`font-display text-sm px-3 py-1 rounded-[8px] border-2 transition-colors cursor-pointer ${
-                        betYes ? 'bg-alive/15 border-alive text-alive' : 'border-paper-shadow/40 text-text-light'
+                      key={t}
+                      onClick={() => setSelectedThreshold(t)}
+                      className={`font-data text-sm px-3.5 py-1 rounded-lg border-2 transition-colors cursor-pointer ${
+                        selectedThreshold === t
+                          ? 'bg-[rgba(195,177,225,0.25)] border-[#C3B1E1] text-[#7A6AA0]'
+                          : 'border-paper-shadow/40 text-text-light hover:border-[#C3B1E1]/40'
                       }`}
                     >
-                      YES
+                      {t}
                     </button>
-                    <button
-                      onClick={() => setBetYes(false)}
-                      className={`font-display text-sm px-3 py-1 rounded-[8px] border-2 transition-colors cursor-pointer ${
-                        !betYes ? 'bg-blood/10 border-blood text-blood' : 'border-paper-shadow/40 text-text-light'
-                      }`}
-                    >
-                      NO
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              </div>
-            )}
-
-            {/* Amount input + submit */}
-            <div className="flex items-end gap-4 pt-3 border-t-2 border-paper-shadow/30">
-              <div className="flex-1 space-y-1">
-                <label className="font-display text-[10px] text-text-light">
-                  Bet Amount (ETH)
-                </label>
-                <input
-                  type="number"
-                  step="0.001"
-                  min="0.001"
-                  value={betAmount}
-                  onChange={(e) => setBetAmount(e.target.value)}
-                  className="w-full bg-meadow/60 border-2 border-paper-shadow/60 rounded-[10px] px-3 py-2
-                             font-data text-sm text-text-dark outline-none focus:border-gold"
-                />
-              </div>
-              <button
-                onClick={handlePlaceBet}
-                disabled={!canBet || betting.isPending}
-                className="px-6 py-2.5 bg-gold/30 border-2 border-gold text-text-dark font-display text-sm
-                           rounded-[10px] transition-colors cursor-pointer
-                           hover:bg-gold/50 shadow-[2px_2px_0_var(--color-paper-shadow)]
-                           disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                {betting.isPending ? 'Placing...' : 'Place Bet'}
-              </button>
-            </div>
-
-            {!wallet && (
-              <div className="font-data text-sm text-text-light text-center py-2">
-                Connect wallet to place bets
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setBetYes(true)}
+                    className={`font-display text-sm px-3.5 py-1 rounded-lg border-2 transition-colors cursor-pointer ${
+                      betYes ? 'bg-[rgba(119,221,119,0.2)] border-[#77DD77] text-[#4A9F4A]' : 'border-paper-shadow/40 text-text-light'
+                    }`}
+                  >
+                    YES
+                  </button>
+                  <button
+                    onClick={() => setBetYes(false)}
+                    className={`font-display text-sm px-3.5 py-1 rounded-lg border-2 transition-colors cursor-pointer ${
+                      !betYes ? 'bg-[rgba(255,107,138,0.15)] border-[#FF6B8A] text-[#D44A6A]' : 'border-paper-shadow/40 text-text-light'
+                    }`}
+                  >
+                    NO
+                  </button>
+                </div>
               </div>
             )}
           </div>
 
-          {/* My Bets */}
-          {myBetsCount > 0 && (
-            <div className="glass-panel !bg-[rgba(255,253,245,0.9)] p-4">
-              <div className="font-display text-sm text-text-dark mb-3">
-                My Bets ({myBetsCount})
-              </div>
-              <div className="space-y-2">
-                {betting.decodedBets.map((bet, i) => (
-                  <div key={i} className="flex items-center justify-between font-data text-sm bg-meadow/50 rounded-[8px] px-3 py-1.5">
+          {/* Amount + submit */}
+          <div className="flex items-end gap-4 pt-3 border-t-2 border-table-pink/30">
+            <div className="flex-1 space-y-1">
+              <label className="font-display text-xs text-text-light">Bet Amount (ETH)</label>
+              <input
+                type="number"
+                step="0.001"
+                min="0.001"
+                value={betAmount}
+                onChange={(e) => setBetAmount(e.target.value)}
+                className="w-full bg-[rgba(232,180,216,0.1)] border-2 border-table-pink/40 rounded-xl px-4 py-2.5
+                           font-data text-base text-text-dark outline-none focus:border-table-pink"
+              />
+            </div>
+            <button
+              onClick={handlePlaceBet}
+              disabled={!canBet || betting.isPending}
+              className="px-8 py-2.5 border-2 text-text-dark font-display text-base
+                         rounded-xl transition-all cursor-pointer
+                         shadow-[2px_2px_0_var(--color-paper-shadow)]
+                         disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ background: 'rgba(232,180,216,0.3)', borderColor: '#C88FBB' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(232,180,216,0.5)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(232,180,216,0.3)' }}
+            >
+              {betting.isPending ? 'Placing...' : 'Place Bet'}
+            </button>
+          </div>
+
+        </div>
+
+        {/* My Bets */}
+        {myBetsCount > 0 && (
+          <div className="max-w-7xl mx-auto w-full glass-panel px-5 py-3" style={{ background: 'rgba(255,253,245,0.9)' }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-display text-sm text-text-dark">My Bets ({myBetsCount})</span>
+              <span className="font-data text-sm text-gold font-bold">{formatEther(myBetsTotal)} ETH</span>
+            </div>
+            <div className="space-y-1.5">
+              {betting.decodedBets.map((bet, i) => {
+                const betChar = bet.player ? getCharacter(getOnChainName(bet.player)) : null
+                const betStyle = betChar ? getAgentStyle(betChar.color) : null
+                return (
+                  <div key={i} className="flex items-center justify-between font-data text-sm rounded-lg px-3 py-1.5"
+                    style={{ background: betStyle ? betStyle.bg : 'rgba(232,180,216,0.15)' }}
+                  >
                     <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-display px-1.5 py-0.5 rounded ${
-                        bet.type === 'winner' ? 'bg-gold/20 text-text-dark' :
-                        bet.type === 'first_death' ? 'bg-blood/15 text-blood' :
-                        'bg-alive/15 text-alive'
-                      }`}>
-                        {bet.type === 'winner' ? 'WINNER' :
+                      <span className="text-xs font-display px-2 py-0.5 rounded-md"
+                        style={{
+                          background: bet.type === 'winner' ? 'rgba(255,213,128,0.3)' :
+                            bet.type === 'first_death' ? 'rgba(255,107,138,0.2)' : 'rgba(119,221,119,0.2)',
+                          color: bet.type === 'winner' ? '#B8923A' :
+                            bet.type === 'first_death' ? '#D44A6A' : '#4A9F4A',
+                        }}
+                      >
+                        {bet.type === 'winner' ? 'WIN' :
                          bet.type === 'first_death' ? `DEATH #${bet.position}` :
-                         `>=${bet.threshold} KILLS`}
+                         `>=${bet.threshold}K`}
                       </span>
-                      <span className="text-text-dark">
+                      <span style={{ color: betStyle?.text || 'var(--color-text-dark)' }}>
                         {bet.player ? getLabel(bet.player) : '?'}
                         {bet.type === 'over_kills' && (
-                          <span className={bet.betYes ? 'text-alive' : 'text-blood'}>
+                          <span style={{ color: bet.betYes ? '#4A9F4A' : '#D44A6A' }}>
                             {' '}{bet.betYes ? 'YES' : 'NO'}
                           </span>
                         )}
                       </span>
                     </div>
-                    <span className="text-gold font-bold">{formatEther(bet.amount)} ETH</span>
+                    <span className="text-gold font-bold">{formatEther(bet.amount)}</span>
                   </div>
-                ))}
-              </div>
-              <div className="mt-2 pt-2 border-t-2 border-paper-shadow/30 flex justify-between font-data text-sm">
-                <span className="text-text-light">Total</span>
-                <span className="text-gold font-bold">{formatEther(myBetsTotal)} ETH</span>
-              </div>
+                )
+              })}
             </div>
-          )}
-
-          {/* Pool info */}
-          <div className="text-center font-data text-[11px] text-text-light">
-            Winner pool: {betting.winnerPoolFormatted} ETH
           </div>
+        )}
+
+        {/* Pool info */}
+        <div className="text-center font-data text-sm text-text-light pb-2">
+          Winner pool: {betting.winnerPoolFormatted} ETH
         </div>
-      </main>
+      </div>
     </div>
   )
 }

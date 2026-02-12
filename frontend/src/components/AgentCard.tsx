@@ -64,7 +64,7 @@ export function AgentCard({
 
       {/* NEXT badge */}
       {isNext && isAlive && !isCurrentTurn && (
-        <span className="absolute -top-3 -right-3 bg-[#FFE082] text-text-dark font-display text-[13px] px-2.5 py-0.5 rounded-xl border-2 border-[#F9A825] shadow-[0_2px_5px_rgba(0,0,0,0.2)] z-10">
+        <span className="absolute -top-3 -right-3 bg-[#f5f5f5] text-text-dark font-display text-[13px] px-2.5 py-0.5 rounded-xl border-2 border-[#b3b3b3] shadow-[0_2px_5px_rgba(0,0,0,0.2)] z-10">
           NEXT
         </span>
       )}

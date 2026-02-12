@@ -63,9 +63,59 @@ body {
 }
 
 @keyframes bubbleFloat {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(-10px); }
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
+
+/* ========================================
+   Thinking Bubble — polished overlay
+   ======================================== */
+.thinking-bubble-container {
+  position: absolute;
+  top: 22vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.thinking-bubble-box {
+  border: 3px solid;
+  border-radius: 22px;
+  padding: 8px 18px;
+  white-space: nowrap;
+  position: relative;
+}
+
+.thinking-bubble-text {
+  font-family: 'Comic Neue', cursive;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-dark);
+  transition: opacity 0.25s ease;
+  display: inline-block;
+}
+
+.thinking-bubble-dots {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.thinking-bubble-dots span {
+  border-radius: 50%;
+  border: 2px solid;
+}
+
+.thinking-bubble-dots span:nth-child(1) { width: 14px; height: 14px; }
+.thinking-bubble-dots span:nth-child(2) { width: 10px; height: 10px; }
+.thinking-bubble-dots span:nth-child(3) { width: 7px; height: 7px; }
+
 
 @keyframes confDrop {
   0% { transform: translateY(0) rotate(0deg); opacity: 1; }
@@ -405,6 +455,76 @@ body {
 
 .animate-title-drop {
   animation: titleDrop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ========================================
+   Betting Stage — animated character row
+   ======================================== */
+.betting-stage {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 0;
+  padding: 0.5rem 0 0;
+  margin-bottom: 1.5rem;
+  position: relative;
+  height: 28vh;
+  min-height: 180px;
+  overflow: visible;
+}
+
+.betting-char {
+  position: relative;
+  height: 22vh;
+  min-height: 140px;
+  cursor: pointer;
+  transition: transform 0.3s ease, filter 0.3s ease;
+  flex-shrink: 0;
+}
+
+.betting-char img {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(4px 6px 3px rgba(0,0,0,0.25));
+  animation: paperIdle 4s ease-in-out infinite;
+}
+
+.betting-char:nth-child(1) img { animation-delay: 0s; }
+.betting-char:nth-child(2) img { animation-delay: 0.8s; }
+.betting-char:nth-child(3) img { animation-delay: 1.6s; }
+.betting-char:nth-child(4) img { animation-delay: 2.4s; }
+.betting-char:nth-child(5) img { animation-delay: 0.4s; }
+
+.betting-char:hover {
+  transform: scale(1.08);
+  z-index: 2;
+}
+
+.betting-char.selected {
+  transform: scale(1.12);
+  z-index: 3;
+}
+
+.betting-char .char-label {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: 'Fredoka One', cursive;
+  font-size: 14px;
+  padding: 3px 14px;
+  border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.8);
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+}
+
+.betting-char.selected .char-label {
+  transform: translateX(-50%) scale(1.1);
+  box-shadow: 0 0 12px rgba(255,215,0,0.4);
+  border-color: var(--color-gold);
 }
 
 /* Scrollbar — warm theme */

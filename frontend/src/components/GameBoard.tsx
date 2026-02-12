@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { type Address } from 'viem'
 import { type GameState } from '../hooks/useGameState'
 import { type GameEvent } from '../hooks/useEventLog'
 import { Phase } from '../config/contracts'
-import { getCharacter } from '../config/characters'
+import { getCharacter, type ThoughtContext } from '../config/characters'
 import { usePlayerNames } from '../hooks/usePlayerNames'
 import { useAudio } from '../hooks/useAudio'
 import { AgentCard } from './AgentCard'
@@ -16,6 +16,7 @@ import { PlayerStatsModal } from './PlayerStatsModal'
 import { ReadyGoOverlay } from './ReadyGoOverlay'
 import { VolumeControl } from './VolumeControl'
 import { ItemUseOverlay } from './ItemUseOverlay'
+import { ThinkingBubble } from './ThinkingBubble'
 
 export type ShotAction = {
   phase: 'prepare' | 'fire'
@@ -98,6 +99,22 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
 
   const nextAliveIdx = getNextAliveIdx(dAlive, dTurnIdx)
 
+  // Build thought context for the current turn's character
+  const thoughtCtx = useMemo<ThoughtContext>(() => {
+    const currentPlayer = players[dTurnIdx]
+    const items = currentPlayer ? (state.playerItems[currentPlayer.toLowerCase()] ?? []) : []
+    const aliveCount = dAlive.filter(Boolean).length
+    return {
+      hp: dHpList[dTurnIdx] ?? 0,
+      maxHp,
+      items,
+      liveShells: dLiveRemaining,
+      blankShells: dBlankRemaining,
+      aliveCount,
+      round: dCurrentRound,
+    }
+  }, [dTurnIdx, dHpList, maxHp, state.playerItems, dLiveRemaining, dBlankRemaining, dAlive, dCurrentRound, players])
+
   // Synchronous shot detection: freeze character positions during shot animation
   // Detect shot: shells decreased, OR round changed (last shell caused reload), OR game just ended
   const shellDecreased = prevState != null && state.shellsRemaining < prevState.shellsRemaining
@@ -122,18 +139,18 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
     }
   }, [state.currentTurnIndex, playTurnSfx, showReadyGo, shotJustHappened])
 
-  // Hide thinking when items are used or shots happen
+  // Hide thinking when items are used (not shots — those are handled by the shot animation)
   useEffect(() => {
     if (showReadyGo) return
+    if (shotJustHappened) return
     if (prevState && (
-      state.shellsRemaining !== prevState.shellsRemaining ||
       JSON.stringify(state.playerItems) !== JSON.stringify(prevState.playerItems)
     )) {
       setIsThinking(false)
       const timer = setTimeout(() => setIsThinking(true), 800)
       return () => clearTimeout(timer)
     }
-  }, [state.shellsRemaining, state.playerItems, showReadyGo])
+  }, [state.playerItems, showReadyGo, shotJustHappened])
 
   // Item use detection: find which item was consumed between prevState and state
   useEffect(() => {
@@ -247,10 +264,10 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
     }, 700)
 
     // t=1200ms: unfreeze display — positions start shifting, HP/shells/alive update
+    // Keep isThinking=true so the bubble stays visible through the whole shot
     const t2 = setTimeout(() => {
       frozenRef.current = null
       setDamagedIdx(null)
-      setIsThinking(false)
     }, 1200)
 
     // t=1900ms: turn SFX + flash (after 0.7s CSS transition completes)
@@ -261,13 +278,18 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
       }
     }, 1900)
 
-    // t=2200ms: clear shot animation + re-enable thinking
+    // t=2200ms: clear shot animation, hide bubble briefly for clean remount on turn change
     const t4 = setTimeout(() => {
       setShotAction(null)
-      setIsThinking(true)
+      setIsThinking(false)
     }, 2200)
 
-    shotTimersRef.current = [t1, t2, t3, t4]
+    // t=2500ms: re-enable thinking for the next player's bubble
+    const t5 = setTimeout(() => {
+      setIsThinking(true)
+    }, 2500)
+
+    shotTimersRef.current = [t1, t2, t3, t4, t5]
 
     return () => clearShotTimers()
   }, [state.shellsRemaining, state.hpList, state.currentRound, state.phase, prevState, clearShotTimers, playShotSfx, playBlankSfx, playPrepareSfx, playTurnSfx, showReadyGo])
@@ -348,10 +370,19 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
         currentTurnIndex={dTurnIdx}
         centerOverrideIdx={centerOverrideIdx}
         names={names}
-        isThinking={isThinking}
         shotAction={shotAction}
         damagedIdx={damagedIdx}
       />
+
+      {/* Thinking bubble — keyed by turn so old bubble unmounts cleanly on turn change */}
+      {dAlive[dTurnIdx] && (
+        <ThinkingBubble
+          key={`thought-${dTurnIdx}`}
+          charName={getOnChainName(dTurnIdx)}
+          context={thoughtCtx}
+          visible={isThinking}
+        />
+      )}
 
       {/* Zone 3: Bottom — Table */}
       <TableArea
