@@ -151,7 +151,7 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
                 <img
                   src="/characters/cigarette.png"
                   alt="cigarette"
-                  className="mx-auto w-48 opacity-20 -rotate-[5deg]"
+                  className="mx-auto w-24 opacity-20 -rotate-[5deg]"
                 />
                 <div className="font-data text-base text-text-light/50">
                   No active games
