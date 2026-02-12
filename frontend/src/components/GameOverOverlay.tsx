@@ -133,7 +133,7 @@ export function GameOverOverlay({ winner, label, prize, players, names, onHome, 
         style={{ background: 'linear-gradient(135deg, var(--color-gold), #FFC107, var(--color-gold))' }}
       >
         <div className="font-semibold text-xs text-text-dark">Prize Pool</div>
-        <div className="font-display text-[26px] text-text-dark">{prize} ETH</div>
+        <div className="font-display text-[26px] text-text-dark">{prize} MON</div>
       </div>
 
       {/* Losers */}

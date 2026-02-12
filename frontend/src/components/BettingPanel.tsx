@@ -34,7 +34,7 @@ function getAgentStyle(colorKey: string) {
 const GUIDE_STEPS = [
   { num: 1, title: 'Pick a character', desc: 'Tap on your favorite player above' },
   { num: 2, title: 'Choose bet type', desc: 'Winner, First Death, or Over/Under' },
-  { num: 3, title: 'Set your wager', desc: 'Enter how much ETH to bet' },
+  { num: 3, title: 'Set your wager', desc: 'Enter how much MON to bet' },
   { num: 4, title: 'Place your bet!', desc: 'Confirm and watch the game unfold' },
 ]
 
@@ -243,7 +243,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
             {/* Game info */}
             <div className="text-right">
               <div className="font-data text-sm text-text-light">Game #{gameId.toString()}</div>
-              <div className="font-display text-xl text-gold leading-tight">{state.prizePoolFormatted} ETH</div>
+              <div className="font-display text-xl text-gold leading-tight">{state.prizePoolFormatted} MON</div>
             </div>
           </div>
         </div>
@@ -395,7 +395,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
           {/* Amount + submit */}
           <div className="flex items-end gap-4 pt-3 border-t-2 border-table-pink/30">
             <div className="flex-1 space-y-1">
-              <label className="font-display text-xs text-text-light">Bet Amount (ETH)</label>
+              <label className="font-display text-xs text-text-light">Bet Amount (MON)</label>
               <input
                 type="number"
                 step="0.001"
@@ -428,7 +428,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
           <div className="max-w-7xl mx-auto w-full glass-panel px-5 py-3" style={{ background: 'rgba(255,253,245,0.9)' }}>
             <div className="flex items-center justify-between mb-2">
               <span className="font-display text-sm text-text-dark">My Bets ({myBetsCount})</span>
-              <span className="font-data text-sm text-gold font-bold">{formatEther(myBetsTotal)} ETH</span>
+              <span className="font-data text-sm text-gold font-bold">{formatEther(myBetsTotal)} MON</span>
             </div>
             <div className="space-y-1.5">
               {betting.decodedBets.map((bet, i) => {
@@ -470,7 +470,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
 
         {/* Pool info */}
         <div className="text-center font-data text-sm text-text-light pb-2">
-          Winner pool: {betting.winnerPoolFormatted} ETH
+          Winner pool: {betting.winnerPoolFormatted} MON
         </div>
       </div>
 

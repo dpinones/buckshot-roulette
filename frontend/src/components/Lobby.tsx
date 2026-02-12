@@ -28,7 +28,7 @@ function QueueCard({ queue }: { queue: QueueInfo }) {
           <span className="font-display text-xl text-gold drop-shadow-[1px_1px_0_rgba(0,0,0,0.15)]">
             {queue.buyInFormatted}
           </span>
-          <span className="font-data text-sm text-text-light ml-2">ETH buy-in</span>
+          <span className="font-data text-sm text-text-light ml-2">MON buy-in</span>
         </div>
         <div className="font-data text-sm text-text-light">
           <span className="text-table-border font-bold text-base">{queue.playerCount}</span>/{MIN_PLAYERS} to start
