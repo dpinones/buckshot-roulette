@@ -149,8 +149,8 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
             ) : (
               <div className="text-center py-14 space-y-4">
                 <img
-                  src="/characters/shotgun.png"
-                  alt="shotgun"
+                  src="/characters/cigarette.png"
+                  alt="cigarette"
                   className="mx-auto w-48 opacity-20 -rotate-[5deg]"
                 />
                 <div className="font-data text-base text-text-light/50">
