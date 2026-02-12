@@ -42,9 +42,10 @@ export function usePlayerStats(pollInterval = 10000) {
 
         if (!active) return
 
-        // Collect unique addresses
+        // Collect unique addresses (ignore legacy games < 17)
         const addressSet = new Set<string>()
         for (const log of logs) {
+          if (log.args.gameId! < 17n) continue
           const players = log.args.players
           if (players) {
             for (const p of players) {

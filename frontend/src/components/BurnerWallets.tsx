@@ -51,7 +51,7 @@ function useClaimableRewards(address: Address | undefined) {
 
         const results: ClaimableGame[] = []
 
-        for (let i = 0n; i < nextId; i++) {
+        for (let i = 17n; i < nextId; i++) {
           const phase = await publicClient.readContract({
             address: ADDRESSES.buckshotGame,
             abi: buckshotGameAbi,

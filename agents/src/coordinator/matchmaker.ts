@@ -53,6 +53,27 @@ async function ensureReady(agent: Agent): Promise<boolean> {
   return true
 }
 
+async function leaveQueueIfStuck(agent: Agent): Promise<void> {
+  try {
+    const inQueue = await publicClient.readContract({
+      ...factoryContract,
+      functionName: 'isInQueue',
+      args: [agent.address],
+    }) as boolean
+    if (!inQueue) return
+
+    log.info(agent.name, 'Stuck in queue from previous run, leaving...')
+    const hash = await agent.walletClient.writeContract({
+      ...factoryContract,
+      functionName: 'leaveQueue',
+    } as any)
+    await publicClient.waitForTransactionReceipt({ hash })
+    log.info(agent.name, 'Left stale queue')
+  } catch {
+    // Best-effort cleanup; if it fails we'll handle it in joinAgent
+  }
+}
+
 async function joinAgent(agent: Agent): Promise<boolean> {
   try {
     const inQueue = await publicClient.readContract({
@@ -74,7 +95,12 @@ async function joinAgent(agent: Agent): Promise<boolean> {
     return true
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    log.error(agent.name, `Failed to join queue: ${msg.slice(0, 80)}`)
+    // AlreadyInQueue (0xf91d7f9b) means the agent is in the queue — treat as success
+    if (msg.includes('0xf91d7f9b') || msg.includes('AlreadyInQueue')) {
+      log.info(agent.name, 'Already in queue (ok)')
+      return true
+    }
+    log.error(agent.name, `Failed to join queue: ${msg.slice(0, 120)}`)
     return false
   }
 }
@@ -104,17 +130,63 @@ async function countAgentsInQueue(agents: Agent[]): Promise<number> {
 }
 
 /**
+ * Check active games for one that contains any of our agents.
+ * This catches games created by external callers (e.g. the frontend).
+ */
+async function findGameWithAgents(agents: Agent[]): Promise<bigint | null> {
+  try {
+    const activeGameIds = await publicClient.readContract({
+      ...factoryContract,
+      functionName: 'getActiveGames',
+    }) as bigint[]
+
+    const gameContract = { address: addresses.buckshotGame as Address, abi: buckshotGameAbi } as const
+    const agentAddrs = new Set(agents.map((a) => a.address.toLowerCase()))
+
+    for (const gameId of activeGameIds) {
+      if (gameId < 17n) continue
+      await sleep(RPC_DELAY_MS)
+      const players = await publicClient.readContract({
+        ...gameContract,
+        functionName: 'getPlayers',
+        args: [gameId],
+      }) as Address[]
+
+      const hasAgent = players.some((p) => agentAddrs.has(p.toLowerCase()))
+      if (hasAgent) {
+        log.system(`Found existing game #${gameId} with our agents (created externally)`)
+        return gameId
+      }
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    log.warn('Matchmaker', `Failed to scan active games: ${msg.slice(0, 80)}`)
+  }
+  return null
+}
+
+/**
  * Watches the queue. When external players are detected, agents join
  * to fill spots. Waits 10s after reaching MIN_PLAYERS before starting
  * to give more players time to join.
  */
 export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null> {
+  // Clean up agents stuck in queue from a previous run
+  for (const agent of agents) {
+    await leaveQueueIfStuck(agent)
+    await sleep(RPC_DELAY_MS)
+  }
+
   for (const agent of agents) {
     const ready = await ensureReady(agent)
     if (!ready) return null
   }
 
   log.system(`Watching queue (buy-in: ${formatEther(buyIn)} MON)... waiting for external players`)
+
+  // Check if agents are already in a game (created before this run started)
+  const existingGame = await findGameWithAgents(agents)
+  if (existingGame !== null) return existingGame
 
   while (true) {
     const queueLen = await getQueueLen()
@@ -153,7 +225,11 @@ export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null
         // Final check — start with however many are in the queue now (min 4, max 6)
         const finalLen = await getQueueLen()
         if (finalLen < MIN_PLAYERS) {
-          log.system(`Queue dropped to ${finalLen}, need ${MIN_PLAYERS}. Waiting...`)
+          // Queue emptied — someone else likely started the game
+          log.system(`Queue dropped to ${finalLen}. Checking for externally created game...`)
+          const extGame = await findGameWithAgents(agents)
+          if (extGame !== null) return extGame
+          log.system('No game found, continuing to watch...')
           await sleep(POLL_INTERVAL_MS)
           continue
         }
@@ -180,7 +256,10 @@ export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null
           return gameId
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e)
-          log.error('Matchmaker', `Failed to start game: ${msg.slice(0, 80)}`)
+          // If startGame fails, someone else may have started it
+          log.warn('Matchmaker', `startGame failed: ${msg.slice(0, 80)}`)
+          const extGame = await findGameWithAgents(agents)
+          if (extGame !== null) return extGame
           return null
         }
       } else {
