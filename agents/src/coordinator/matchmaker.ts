@@ -14,9 +14,9 @@ const factoryContract = { address: addresses.gameFactory as Address, abi: gameFa
 const profileContract = { address: addresses.playerProfile as Address, abi: playerProfileAbi } as const
 const buyIn = config.buyIn
 
-/**
- * Ensures an agent has a profile and sufficient balance.
- */
+const WAIT_AFTER_JOIN_MS = 10_000 // wait 10s after detecting players before starting
+const MIN_PLAYERS = 4
+
 async function ensureReady(agent: Agent): Promise<boolean> {
   const [balance, hasProfile] = await Promise.all([
     publicClient.getBalance({ address: agent.address }),
@@ -51,9 +51,6 @@ async function ensureReady(agent: Agent): Promise<boolean> {
   return true
 }
 
-/**
- * Joins a single agent to the queue. Returns true if joined (or already in queue).
- */
 async function joinAgent(agent: Agent): Promise<boolean> {
   try {
     const inQueue = await publicClient.readContract({
@@ -80,82 +77,89 @@ async function joinAgent(agent: Agent): Promise<boolean> {
   }
 }
 
+async function getQueueLen(): Promise<number> {
+  return Number(
+    await publicClient.readContract({
+      ...factoryContract,
+      functionName: 'getQueueLength',
+      args: [buyIn],
+    }) as bigint
+  )
+}
+
+async function countAgentsInQueue(agents: Agent[]): Promise<number> {
+  let count = 0
+  for (const agent of agents) {
+    const inQueue = await publicClient.readContract({
+      ...factoryContract,
+      functionName: 'isInQueue',
+      args: [agent.address],
+    }) as boolean
+    if (inQueue) count++
+  }
+  return count
+}
+
 /**
  * Watches the queue. When external players are detected, agents join
- * to fill the remaining spots and start the game.
+ * to fill spots. Waits 10s after reaching MIN_PLAYERS before starting
+ * to give more players time to join.
  */
 export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null> {
-  // Ensure all agents are ready (profile + balance)
   for (const agent of agents) {
     const ready = await ensureReady(agent)
     if (!ready) return null
   }
 
-  const agentAddresses = new Set(agents.map((a) => a.address.toLowerCase()))
-
   log.system(`Watching queue (buy-in: ${formatEther(buyIn)} MON)... waiting for external players`)
 
-  // Poll until we detect external players and can start a game
   while (true) {
-    const queueLen = Number(
-      await publicClient.readContract({
-        ...factoryContract,
-        functionName: 'getQueueLength',
-        args: [buyIn],
-      }) as bigint
-    )
-
-    // Count how many of our agents are already in queue
-    let agentsInQueue = 0
-    for (const agent of agents) {
-      const inQueue = await publicClient.readContract({
-        ...factoryContract,
-        functionName: 'isInQueue',
-        args: [agent.address],
-      }) as boolean
-      if (inQueue) agentsInQueue++
-    }
-
+    const queueLen = await getQueueLen()
+    const agentsInQueue = await countAgentsInQueue(agents)
     const externalPlayers = queueLen - agentsInQueue
 
     if (externalPlayers > 0) {
       log.system(`Detected ${externalPlayers} external player(s) in queue (${queueLen} total)`)
 
-      // Calculate how many agents need to join to reach playerCount
-      const spotsNeeded = config.playerCount - queueLen
+      // Join agents to fill remaining spots up to MIN_PLAYERS
+      const spotsToFill = Math.max(0, MIN_PLAYERS - queueLen)
       let joined = 0
-
       for (const agent of agents) {
-        if (joined >= spotsNeeded) break
-
+        if (joined >= spotsToFill) break
         const inQueue = await publicClient.readContract({
           ...factoryContract,
           functionName: 'isInQueue',
           args: [agent.address],
         }) as boolean
         if (inQueue) continue
-
         const ok = await joinAgent(agent)
         if (ok) joined++
         await sleep(500)
       }
 
-      // Check if we have enough to start
-      const newQueueLen = Number(
-        await publicClient.readContract({
-          ...factoryContract,
-          functionName: 'getQueueLength',
-          args: [buyIn],
-        }) as bigint
-      )
+      const afterJoinLen = await getQueueLen()
 
-      if (newQueueLen >= config.playerCount) {
-        // Start game
+      if (afterJoinLen >= MIN_PLAYERS) {
+        // Wait 10s to let more players join
+        log.system(`${afterJoinLen} players in queue. Waiting 10s before starting...`)
+        await sleep(WAIT_AFTER_JOIN_MS)
+
+        // Final check — start with however many are in the queue now (min 4, max 6)
+        const finalLen = await getQueueLen()
+        if (finalLen < MIN_PLAYERS) {
+          log.system(`Queue dropped to ${finalLen}, need ${MIN_PLAYERS}. Waiting...`)
+          await sleep(config.pollIntervalMs)
+          continue
+        }
+
+        const startWith = Math.min(finalLen, 6)
+        log.system(`Starting game with ${startWith} players`)
+
         try {
           const hash = await walletClients[0].writeContract({
             ...factoryContract,
             functionName: 'startGame',
-            args: [buyIn, config.playerCount],
+            args: [buyIn, startWith],
           } as any)
           await publicClient.waitForTransactionReceipt({ hash })
 
@@ -174,7 +178,7 @@ export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null
           return null
         }
       } else {
-        log.system(`Queue at ${newQueueLen}/${config.playerCount}, waiting for more players...`)
+        log.system(`Queue at ${afterJoinLen}/${MIN_PLAYERS}, waiting for more players...`)
       }
     }
 

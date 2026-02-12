@@ -30,7 +30,7 @@ const LLM_API_KEY = process.env.LLM_API_KEY || "";
 const LLM_API_URL = process.env.LLM_API_URL || "https://api.openai.com/v1/chat/completions";
 const LLM_MODEL = process.env.LLM_MODEL || "gpt-4o-mini";
 const LLM_TIMEOUT_MS = 10_000; // max time to wait for LLM response
-const MIN_TURN_TIME_MS = 20_000; // skip LLM if less than this time left on turn
+const MIN_TURN_TIME_MS = 8_000; // skip LLM if less than this time left on turn
 const PERSONALITY = process.env.PERSONALITY || "You are a strategic player. Analyze probabilities, use items wisely, and make optimal decisions to survive and win.";
 
 // ─── Contract Addresses (Monad Testnet) ─────────────────────────

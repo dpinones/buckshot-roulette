@@ -32,5 +32,5 @@ export const config = {
   buyIn: parseEther(env('BUY_IN', '0.00001')),
   pollIntervalMs: parseInt(env('POLL_INTERVAL_MS', '2000')),
   actionDelayMs: parseInt(env('ACTION_DELAY_MS', '3000')),
-  playerCount: 3 as const,
+  playerCount: 4 as const,
 }
