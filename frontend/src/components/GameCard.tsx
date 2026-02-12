@@ -8,10 +8,6 @@ interface GameCardProps {
   onClick: () => void
 }
 
-function shortAddr(addr: string): string {
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
-}
-
 export function GameCard({ game, onClick }: GameCardProps) {
   const names = usePlayerNames(game.players)
 

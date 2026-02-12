@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { type Address, parseEther, formatEther } from 'viem'
 import { useAccount } from 'wagmi'
 import { type GameState } from '../hooks/useGameState'
-import { useBetting, type DecodedBet } from '../hooks/useBetting'
+import { useBetting } from '../hooks/useBetting'
 import { usePlayerNames } from '../hooks/usePlayerNames'
 import { getCharacter } from '../config/characters'
 
@@ -13,10 +13,6 @@ interface BettingPanelProps {
 }
 
 type BetTab = 'winner' | 'first_death' | 'over_kills'
-
-function shortAddr(addr: string): string {
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
-}
 
 function CountdownTimer({ timeLeft }: { timeLeft: number }) {
   const minutes = Math.floor(timeLeft / 60)
@@ -131,7 +127,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
           {/* Players list */}
           <div className="glass-panel py-4 px-6">
             <div className="flex justify-center gap-4">
-              {players.map((player, i) => {
+              {players.map((player) => {
                 const char = getCharacter(getOnChainName(player))
                 return (
                   <div key={player} className="text-center space-y-1">
@@ -173,7 +169,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
                   Who will win?
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {players.map((player, i) => {
+                  {players.map((player) => {
                     const char = getCharacter(getOnChainName(player))
                     return (
                       <button
@@ -219,7 +215,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
                   ))}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {players.map((player, i) => {
+                  {players.map((player) => {
                     const char = getCharacter(getOnChainName(player))
                     return (
                       <button
@@ -249,7 +245,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
                   Will player get X+ kills?
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {players.map((player, i) => {
+                  {players.map((player) => {
                     const char = getCharacter(getOnChainName(player))
                     return (
                       <button

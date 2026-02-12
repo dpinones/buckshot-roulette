@@ -109,10 +109,6 @@ export function GameReplay({ gameId, onBack }: GameReplayProps) {
     return addr ? names[addr.toLowerCase()] || '' : ''
   }
 
-  function getLabel(index: number): string {
-    return getCharacter(getOnChainName(index)).name
-  }
-
   // Keyboard controls
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'ArrowRight') { e.preventDefault(); next() }
@@ -225,15 +221,16 @@ export function GameReplay({ gameId, onBack }: GameReplayProps) {
         currentTurnIndex={gameState.currentTurnIndex}
         names={names}
         isThinking={false}
+        shotAction={null}
+        damagedIdx={null}
       />
 
       {/* Zone 3: Bottom — Table */}
       <TableArea
         liveShells={gameState.liveRemaining}
         blankShells={gameState.blankRemaining}
-        round={gameState.currentRound}
-        maxHp={maxHp}
-        prize={gameState.prizePoolFormatted}
+        spentShells={0}
+        shotAction={null}
       />
 
       {/* Floating event log */}

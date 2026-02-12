@@ -79,10 +79,6 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
     return names[players[index]?.toLowerCase()] || ''
   }
 
-  function getLabel(index: number): string {
-    return getCharacter(getOnChainName(index)).name
-  }
-
   const maxHp = 3
   const isFinished = state.phase === Phase.FINISHED
 
