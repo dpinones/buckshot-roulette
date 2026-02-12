@@ -1,5 +1,6 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useLobbyState, type QueueInfo } from '../hooks/useLobbyState'
+import { useLobbyMusic } from '../hooks/useLobbyMusic'
 import { GameCard } from './GameCard'
 import { BurnerWallets } from './BurnerWallets'
 import { isLocal } from '../config/wagmi'
@@ -82,6 +83,7 @@ function SectionHeader({ title, badge }: { title: string; badge?: React.ReactNod
 }
 
 export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
+  useLobbyMusic()
   const { queues, games, connected, error } = useLobbyState(3000)
 
   const filteredQueues = queues.filter((q) => q.buyIn === 10_000_000_000_000n)

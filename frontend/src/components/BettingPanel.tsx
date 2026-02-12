@@ -5,6 +5,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { type GameState } from '../hooks/useGameState'
 import { useBetting } from '../hooks/useBetting'
 import { usePlayerNames } from '../hooks/usePlayerNames'
+import { useLobbyMusic } from '../hooks/useLobbyMusic'
 import { getCharacter } from '../config/characters'
 import { BurnerWallets } from './BurnerWallets'
 import { isLocal } from '../config/wagmi'
@@ -119,6 +120,7 @@ function BettingCharacter({
 }
 
 export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
+  useLobbyMusic()
   const { address: wallet } = useAccount()
   const betting = useBetting(gameId)
   const names = usePlayerNames(state.players)
