@@ -8,14 +8,6 @@ interface GameCardProps {
   onClick: () => void
 }
 
-const AGENT_BG: Record<string, string> = {
-  calc: 'rgba(137,207,240,0.18)',
-  agro: 'rgba(255,107,138,0.14)',
-  trap: 'rgba(119,221,119,0.14)',
-  filo: 'rgba(195,177,225,0.18)',
-  apre: 'rgba(255,213,128,0.18)',
-}
-
 const AGENT_TEXT: Record<string, string> = {
   calc: '#4A90B8',
   agro: '#D44A6A',

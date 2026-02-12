@@ -3,7 +3,7 @@ import { type Address } from 'viem'
 import { type GameState } from '../hooks/useGameState'
 import { type GameEvent } from '../hooks/useEventLog'
 import { Phase } from '../config/contracts'
-import { getCharacter, type ThoughtContext } from '../config/characters'
+import { type ThoughtContext } from '../config/characters'
 import { usePlayerNames } from '../hooks/usePlayerNames'
 import { useAudio } from '../hooks/useAudio'
 import { AgentCard } from './AgentCard'
@@ -78,10 +78,6 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
 
   function getOnChainName(index: number): string {
     return names[players[index]?.toLowerCase()] || ''
-  }
-
-  function getLabel(index: number): string {
-    return getCharacter(getOnChainName(index)).name
   }
 
   const maxHp = 3

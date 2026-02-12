@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { type Address, parseEther, formatEther } from 'viem'
 import { useAccount } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { type GameState } from '../hooks/useGameState'
-import { useBetting, type DecodedBet } from '../hooks/useBetting'
+import { useBetting } from '../hooks/useBetting'
 import { usePlayerNames } from '../hooks/usePlayerNames'
 import { getCharacter } from '../config/characters'
 import { BurnerWallets } from './BurnerWallets'
@@ -39,7 +39,7 @@ const GUIDE_STEPS = [
 /* Animated character with blinking */
 function BettingCharacter({
   char,
-  index,
+  index: _index,
   isSelected,
   onClick,
   label
@@ -51,7 +51,7 @@ function BettingCharacter({
   label: string
 }) {
   const imgRef = useRef<HTMLImageElement>(null)
-  const blinkTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const blinkTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => {
     const preload = new Image()

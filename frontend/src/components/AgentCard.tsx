@@ -23,7 +23,7 @@ interface AgentCardProps {
 }
 
 export function AgentCard({
-  address,
+  address: _address,
   hp,
   maxHp,
   items,

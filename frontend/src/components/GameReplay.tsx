@@ -4,7 +4,7 @@ import { useGameReplay, type ReplayState } from '../hooks/useGameReplay'
 import { type GameState } from '../hooks/useGameState'
 import { type GameEvent } from '../hooks/useEventLog'
 import { Phase } from '../config/contracts'
-import { getCharacter } from '../config/characters'
+
 import { usePlayerNames } from '../hooks/usePlayerNames'
 import { AgentCard } from './AgentCard'
 import { CharacterStage } from './CharacterStage'
@@ -107,10 +107,6 @@ export function GameReplay({ gameId, onBack }: GameReplayProps) {
   function getOnChainName(index: number): string {
     const addr = replayPlayers[index]
     return addr ? names[addr.toLowerCase()] || '' : ''
-  }
-
-  function getLabel(index: number): string {
-    return getCharacter(getOnChainName(index)).name
   }
 
   // Keyboard controls
@@ -230,9 +226,8 @@ export function GameReplay({ gameId, onBack }: GameReplayProps) {
       <TableArea
         liveShells={gameState.liveRemaining}
         blankShells={gameState.blankRemaining}
-        round={gameState.currentRound}
-        maxHp={maxHp}
-        prize={gameState.prizePoolFormatted}
+        spentShells={gameState.shellsRemaining - gameState.liveRemaining - gameState.blankRemaining}
+        shotAction={null}
       />
 
       {/* Floating event log */}
