@@ -51,11 +51,15 @@ async function main() {
       watcher.start()
 
       // Wait for game to finish
+      let tickCount = 0
       while (watcher.getGameId() !== null) {
-        // Check for timeouts periodically
-        const gid = watcher.getGameId()
-        if (gid !== null) {
-          await checkAndForceTimeout(gid)
+        // Check for timeouts every 3rd tick to reduce RPC calls
+        tickCount++
+        if (tickCount % 3 === 0) {
+          const gid = watcher.getGameId()
+          if (gid !== null) {
+            await checkAndForceTimeout(gid)
+          }
         }
         await sleep(config.pollIntervalMs)
       }

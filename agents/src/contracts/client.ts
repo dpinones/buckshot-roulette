@@ -2,6 +2,7 @@ import {
   createPublicClient,
   createWalletClient,
   http,
+  defineChain,
   type PublicClient,
   type WalletClient,
   type Transport,
@@ -11,13 +12,18 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import { config } from '../config.js'
 
-// Use foundry chain for local, override RPC url
-const chain: Chain = {
-  ...foundry,
-  rpcUrls: {
-    default: { http: [config.rpcUrl] },
-  },
-}
+const monadTestnet = defineChain({
+  id: 10143,
+  name: 'Monad Testnet',
+  nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
+  rpcUrls: { default: { http: [config.rpcUrl] } },
+})
+
+const isLocal = config.rpcUrl.includes('127.0.0.1') || config.rpcUrl.includes('localhost')
+
+const chain: Chain = isLocal
+  ? { ...foundry, rpcUrls: { default: { http: [config.rpcUrl] } } }
+  : monadTestnet
 
 const transport: Transport = http(config.rpcUrl)
 
