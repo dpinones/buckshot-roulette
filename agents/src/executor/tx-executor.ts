@@ -27,7 +27,6 @@ async function sendTx(
         abi: buckshotGameAbi,
         functionName,
         args,
-        gas: 500_000n,
       } as any)
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash })

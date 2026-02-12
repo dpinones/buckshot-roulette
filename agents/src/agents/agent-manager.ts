@@ -23,8 +23,6 @@ const AGENT_DEFS: AgentDef[] = [
   { name: 'El Calculador', personalityFile: 'el-calculador.md', llm: 'sonnet' },
   { name: 'El Agresivo', personalityFile: 'el-agresivo.md', llm: 'gpt' },
   { name: 'La Tramposa', personalityFile: 'la-tramposa.md', llm: 'gpt' },
-  { name: 'El Filosofo', personalityFile: 'el-filosofo.md', llm: 'sonnet' },
-  { name: 'El Aprendiz', personalityFile: 'el-aprendiz.md', llm: 'sonnet' },
 ]
 
 function loadPersonality(filename: string): string {

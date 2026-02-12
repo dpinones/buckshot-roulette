@@ -18,7 +18,9 @@ if (!PRIVATE_KEY) {
 }
 const RPC_URL = process.env.RPC_URL || "https://testnet-rpc.monad.xyz";
 const BUY_IN = parseEther("0.00001");
-const PLAYER_COUNT = 4;
+const PLAYER_COUNT = parseInt(process.env.PLAYER_COUNT || "4");
+const AUTO_REJOIN = (process.env.AUTO_REJOIN || "true").toLowerCase() === "true";
+const NOTIFY_URL = process.env.NOTIFY_URL || ""; // webhook URL to POST game results
 const AGENT_NAME =
   process.env.AGENT_NAME || `Agent-${Math.random().toString(36).slice(2, 8)}`;
 const POLL_MS = 2000;
@@ -713,6 +715,28 @@ async function executeActions(gameId: bigint, actions: Action[]) {
   }
 }
 
+// ─── Notify Result ──────────────────────────────────────────────
+async function notifyResult(gameId: bigint, won: boolean, prize: bigint) {
+  const result = {
+    agent: AGENT_NAME,
+    wallet: MY_ADDRESS,
+    gameId: gameId.toString(),
+    result: won ? "WIN" : "LOSS",
+    prize: formatEther(prize),
+  };
+  log(`GAME OVER! ${won ? "WE WON!" : "We lost."} Prize: ${formatEther(prize)} MON`);
+
+  if (NOTIFY_URL) {
+    try {
+      await fetch(NOTIFY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(result),
+      });
+    } catch { /* notification is best-effort */ }
+  }
+}
+
 // ─── Play Game Loop ─────────────────────────────────────────────
 async function playGame(gameId: bigint) {
   log(`Playing game ${gameId}...`);
@@ -722,7 +746,7 @@ async function playGame(gameId: bigint) {
 
     if (state.phase === 2) {
       const won = state.winner.toLowerCase() === MY_ADDRESS.toLowerCase();
-      log(`GAME OVER! Winner: ${state.winner.slice(0, 10)}... ${won ? "(THAT'S US!)" : "(we lost)"} Prize: ${formatEther(state.prizePool)} MON`);
+      await notifyResult(gameId, won, state.prizePool);
       return;
     }
 
@@ -746,25 +770,28 @@ async function playGame(gameId: bigint) {
 // ─── Main ───────────────────────────────────────────────────────
 async function main() {
   log(`Wallet: ${MY_ADDRESS}`);
-  log(`Buy-in: ${formatEther(BUY_IN)} MON | Players: ${PLAYER_COUNT}`);
+  log(`Buy-in: ${formatEther(BUY_IN)} MON | Players: ${PLAYER_COUNT} | Auto-rejoin: ${AUTO_REJOIN}`);
   if (LLM_API_KEY) log(`LLM: ${LLM_MODEL} via ${LLM_API_URL}`);
   else log("No LLM_API_KEY — using deterministic fallback strategy");
 
   await ensureProfile();
 
-  while (true) {
+  do {
     try {
       const gameId = await joinAndStartGame();
       await waitForActivation(gameId);
       await playGame(gameId);
-      log("Game complete. Looking for next game in 5s...");
-      await sleep(5000);
+      if (AUTO_REJOIN) {
+        log("Looking for next game in 5s...");
+        await sleep(5000);
+      }
     } catch (e: any) {
       log("Error:", e.message?.slice(0, 200));
-      log("Retrying in 5s...");
-      await sleep(5000);
+      if (AUTO_REJOIN) { log("Retrying in 5s..."); await sleep(5000); }
     }
-  }
+  } while (AUTO_REJOIN);
+
+  log("Game finished. Auto-rejoin is off, exiting.");
 }
 
 main().catch((e) => { console.error("Fatal:", e); process.exit(1); });

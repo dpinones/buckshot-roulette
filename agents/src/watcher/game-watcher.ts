@@ -140,7 +140,6 @@ export class GameWatcher {
         ...contract,
         functionName: 'activateGame',
         args: [gameId],
-        gas: 1_000_000n,
       } as any)
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
