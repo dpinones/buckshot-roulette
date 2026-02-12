@@ -1,6 +1,6 @@
 import { createAgents } from './agents/agent-manager.js'
 import { GameWatcher } from './watcher/game-watcher.js'
-import { createMatch } from './coordinator/matchmaker.js'
+import { waitAndCreateMatch } from './coordinator/matchmaker.js'
 import { checkAndForceTimeout } from './coordinator/timeout-enforcer.js'
 import { config } from './config.js'
 import { log } from './logger.js'
@@ -37,8 +37,8 @@ async function main() {
         continue
       }
 
-      // Create a new match
-      const gameId = await createMatch(agents)
+      // Wait for external players and create match
+      const gameId = await waitAndCreateMatch(agents)
 
       if (gameId === null) {
         log.warn('Main', 'Failed to create match, retrying in 10s...')

@@ -60,7 +60,6 @@ async function sendTx(
     functionName,
     args,
     value,
-    gas: 500_000n,
   } as any)
   const receipt = await publicClient.waitForTransactionReceipt({ hash })
   if (receipt.status !== 'success') {

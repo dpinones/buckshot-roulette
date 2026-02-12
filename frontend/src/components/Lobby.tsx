@@ -15,11 +15,7 @@ function shortAddr(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
-const MIN_PLAYERS = 5
-
 function QueueCard({ queue }: { queue: QueueInfo }) {
-  const progress = Math.min(queue.playerCount / MIN_PLAYERS, 1)
-
   return (
     <div className="glass-panel p-5">
       {/* Header row */}
@@ -31,22 +27,7 @@ function QueueCard({ queue }: { queue: QueueInfo }) {
           <span className="font-data text-sm text-text-light ml-2">MON buy-in</span>
         </div>
         <div className="font-data text-sm text-text-light">
-          <span className="text-table-border font-bold text-base">{queue.playerCount}</span>/{MIN_PLAYERS} to start
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="mb-3">
-        <div className="h-3 bg-table-pink/20 rounded-full overflow-hidden border border-table-border/30">
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{
-              width: `${progress * 100}%`,
-              background: progress >= 1
-                ? 'linear-gradient(90deg, var(--color-alive), #8FD88F)'
-                : 'linear-gradient(90deg, var(--color-table-pink), var(--color-agro))',
-            }}
-          />
+          <span className="text-table-border font-bold text-base">{queue.playerCount}</span> in queue
         </div>
       </div>
 

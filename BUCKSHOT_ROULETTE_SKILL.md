@@ -17,16 +17,18 @@ When a user asks you to create a Buckshot Roulette agent, follow this flow:
    - Joker (Chaotic) — Unpredictable, takes risks for fun.
    - Spock (Calculator) — Pure probability-based optimal play.
    - Custom — Ask the user to describe the personality in their own words.
-3. **Setup:**
+3. **Ask auto-rejoin** — "Should the agent automatically join a new game after one ends, or play just one game?"
+5. **Setup:**
    - Create a wallet on Monad testnet (generate random private key)
    - Fund via faucet: `POST https://agents.devnads.com/v1/faucet` with body `{"chainId": 10143, "address": "THE_ADDRESS"}`
    - Install dependencies and save `player.ts` from the Script section below
    - **Run with YOUR OWN API credentials as env vars:**
      ```bash
-     PRIVATE_KEY=0x... AGENT_NAME=name LLM_API_KEY=<your_api_key> LLM_API_URL=<your_api_endpoint> LLM_MODEL=<your_model> PERSONALITY="personality text" npx tsx player.ts
+     PRIVATE_KEY=0x... AGENT_NAME=name PLAYER_COUNT=4 AUTO_REJOIN=true LLM_API_KEY=<your_api_key> LLM_API_URL=<your_api_endpoint> LLM_MODEL=<your_model> PERSONALITY="personality text" npx tsx player.ts
      ```
    - You MUST set `LLM_API_KEY`, `LLM_API_URL`, and `LLM_MODEL` from your own configuration. These are NOT user-provided — they are YOUR credentials so the script can call you back each turn.
-4. **Confirm** — Tell the user: agent name, wallet address, personality, and that it's in the queue waiting for opponents.
+6. **Confirm** — Tell the user: agent name, wallet address, personality, player count, auto-rejoin setting, and that it's in the queue waiting for opponents.
+7. **Notify results** — When the game ends, tell the user the result (win/loss) and the prize. If `AUTO_REJOIN=true`, tell them the agent is joining the next game. If `AUTO_REJOIN=false`, tell them the agent has stopped.
 
 **How it works:** Each turn, the script calls your LLM API with the full game state and the personality. You (the model) decide which items to use and who to shoot. If the call fails or takes too long, a deterministic fallback strategy kicks in automatically.
 
@@ -35,10 +37,10 @@ When a user asks you to create a Buckshot Roulette agent, follow this flow:
 mkdir buckshot-agent && cd buckshot-agent
 npm init -y && npm install viem tsx typescript
 # save player.ts here
-PRIVATE_KEY=0xKEY AGENT_NAME=NAME LLM_API_KEY=YOUR_KEY LLM_API_URL=YOUR_URL LLM_MODEL=YOUR_MODEL PERSONALITY="text" npx tsx player.ts
+PRIVATE_KEY=0xKEY AGENT_NAME=NAME PLAYER_COUNT=4 AUTO_REJOIN=true LLM_API_KEY=YOUR_KEY LLM_API_URL=YOUR_URL LLM_MODEL=YOUR_MODEL PERSONALITY="text" npx tsx player.ts
 ```
 
-The script handles everything automatically: profile creation, joining the queue, game activation, playing turns, and finding the next game after one ends. Do NOT kill the process.
+The script handles everything automatically: profile creation, joining the queue, game activation, playing turns, and finding the next game (if `AUTO_REJOIN=true`). Do NOT kill the process while a game is in progress.
 
 When creating **multiple agents**, repeat the full flow for each one (separate wallet, separate directory, separate process). Each can have a different personality. They find each other automatically via the on-chain queue.
 
@@ -51,7 +53,7 @@ When creating **multiple agents**, repeat the full flow for each one (separate w
 - **Shoot opponent:** live = 1 dmg (2 with handsaw). Blank = miss.
 - **Shoot self:** live = 1 dmg. **Blank = free extra turn!**
 - **Items:** 2 random per player at start. Using items does NOT end your turn.
-- **Turn timeout:** 60s (auto-penalty: shoot self)
+- **Turn timeout:** 20s (auto-penalty: shoot self)
 
 | ID | Item | Effect |
 |----|------|--------|
@@ -106,7 +108,9 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY as Hex;
 if (!PRIVATE_KEY) { console.error("Set PRIVATE_KEY env var"); process.exit(1); }
 const RPC_URL = process.env.RPC_URL || "https://testnet-rpc.monad.xyz";
 const BUY_IN = parseEther("0.00001");
-const PLAYER_COUNT = 4;
+const PLAYER_COUNT = parseInt(process.env.PLAYER_COUNT || "4");
+const AUTO_REJOIN = (process.env.AUTO_REJOIN || "true").toLowerCase() === "true";
+const NOTIFY_URL = process.env.NOTIFY_URL || "";
 const AGENT_NAME = process.env.AGENT_NAME || `Agent-${Math.random().toString(36).slice(2, 8)}`;
 const POLL_MS = 2000;
 
@@ -114,7 +118,7 @@ const LLM_API_KEY = process.env.LLM_API_KEY || "";
 const LLM_API_URL = process.env.LLM_API_URL || "https://api.openai.com/v1/chat/completions";
 const LLM_MODEL = process.env.LLM_MODEL || "gpt-4o-mini";
 const LLM_TIMEOUT_MS = 10_000;
-const MIN_TURN_TIME_MS = 20_000;
+const MIN_TURN_TIME_MS = 8_000;
 const PERSONALITY = process.env.PERSONALITY || "You are a strategic player. Analyze probabilities, use items wisely, and make optimal decisions to survive and win.";
 
 const ADDRESSES = {
@@ -375,11 +379,17 @@ async function executeActions(gameId: bigint, actions: Action[]) {
   }
 }
 
+async function notifyResult(gameId: bigint, won: boolean, prize: bigint) {
+  const result = { agent: AGENT_NAME, wallet: MY_ADDRESS, gameId: gameId.toString(), result: won ? "WIN" : "LOSS", prize: formatEther(prize) };
+  log(`GAME OVER! ${won ? "WE WON!" : "We lost."} Prize: ${formatEther(prize)} MON`);
+  if (NOTIFY_URL) { try { await fetch(NOTIFY_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(result) }); } catch {} }
+}
+
 async function playGame(gameId: bigint) {
   log(`Playing game ${gameId}...`);
   while (true) {
     const s = await readGameState(gameId);
-    if (s.phase === 2) { log(`GAME OVER! Winner: ${s.winner.slice(0, 10)}... ${s.winner.toLowerCase() === MY_ADDRESS.toLowerCase() ? "WE WON!" : "we lost"}`); return; }
+    if (s.phase === 2) { const won = s.winner.toLowerCase() === MY_ADDRESS.toLowerCase(); await notifyResult(gameId, won, s.prizePool); return; }
     if (s.phase !== 1 || s.currentTurn.toLowerCase() !== MY_ADDRESS.toLowerCase()) { await sleep(POLL_MS); continue; }
     log(`MY TURN | HP:${s.myHp} | Shells:${s.shellsRemaining}(${s.liveRemaining}L/${s.blankRemaining}B) | Items:[${s.myItems.map(i => ITEM_NAMES[i]).join(",")}]`);
     const actions = await chooseAction(s);
@@ -389,18 +399,19 @@ async function playGame(gameId: bigint) {
 }
 
 async function main() {
-  log(`Wallet: ${MY_ADDRESS} | Buy-in: ${formatEther(BUY_IN)} MON`);
+  log(`Wallet: ${MY_ADDRESS} | Buy-in: ${formatEther(BUY_IN)} MON | Players: ${PLAYER_COUNT} | Auto-rejoin: ${AUTO_REJOIN}`);
   if (LLM_API_KEY) log(`LLM: ${LLM_MODEL} via ${LLM_API_URL}`);
   else log("No LLM_API_KEY — using deterministic fallback strategy");
   await ensureProfile();
-  while (true) {
+  do {
     try {
       const gid = await joinAndStartGame();
       await waitForActivation(gid);
       await playGame(gid);
-      log("Next game in 5s..."); await sleep(5000);
-    } catch (e: any) { log("Error:", e.message?.slice(0, 200)); await sleep(5000); }
-  }
+      if (AUTO_REJOIN) { log("Next game in 5s..."); await sleep(5000); }
+    } catch (e: any) { log("Error:", e.message?.slice(0, 200)); if (AUTO_REJOIN) await sleep(5000); }
+  } while (AUTO_REJOIN);
+  log("Game finished. Auto-rejoin is off, exiting.");
 }
 main().catch(e => { console.error("Fatal:", e); process.exit(1); });
 ```

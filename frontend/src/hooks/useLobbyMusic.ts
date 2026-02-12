@@ -36,8 +36,6 @@ export function useLobbyMusic() {
   }, [])
 
   useEffect(() => {
-    const maxVol = MUSIC_MAX_VOL * volumeRef.current
-
     const audio = new Audio(LOBBY_TRACK)
     audio.loop = true
     audio.volume = 0

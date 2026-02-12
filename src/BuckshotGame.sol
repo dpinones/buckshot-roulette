@@ -55,7 +55,7 @@ contract BuckshotGame {
     PlayerProfile public profileContract;
 
     uint256 public nextGameId;
-    uint256 public constant TURN_TIMEOUT = 60 seconds;
+    uint256 public constant TURN_TIMEOUT = 20 seconds;
     uint256 private _nonce;
 
     mapping(uint256 => Game) internal games;
