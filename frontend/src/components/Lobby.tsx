@@ -19,7 +19,7 @@ function QueueCard({ queue }: { queue: QueueInfo }) {
   const progress = Math.min(queue.playerCount / MIN_PLAYERS, 1)
 
   return (
-    <div className="bg-[rgba(200,230,200,0.92)] border-3 border-alive rounded-[14px] p-4 shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
+    <div className="glass-panel p-5">
       {/* Buy-in */}
       <div className="text-center mb-3">
         <div className="text-lg font-display text-gold drop-shadow-[1px_1px_0_rgba(0,0,0,0.2)]">
@@ -72,33 +72,39 @@ function QueueCard({ queue }: { queue: QueueInfo }) {
 export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
   const { queues, games, connected, error } = useLobbyState(3000)
 
-  return (
-    <div className="min-h-screen bg-meadow flex flex-col">
-      {/* Header */}
-      <header className="border-b-3 border-paper-shadow/40 px-6 py-5">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="font-display text-2xl text-text-dark">
-              Buckshot Roulette
-            </h1>
-          </div>
+  const filteredQueues = queues.filter((q) => q.buyIn === 10_000_000_000_000n)
 
-          <div className="flex items-center gap-3">
-            {onOpenRankings && (
-              <button
-                onClick={onOpenRankings}
-                className="font-display text-[11px] text-text-dark px-3 py-1.5 bg-paper border-2 border-text-dark/20 hover:border-gold rounded-[10px] shadow-[2px_2px_0_var(--color-paper-shadow)] cursor-pointer transition-colors hover:bg-[#FFF3D0]"
-              >
-                RANKINGS
-              </button>
-            )}
-            {isLocal ? <BurnerWallets /> : <ConnectButton accountStatus="address" chainStatus="icon" showBalance={false} />}
-          </div>
+  return (
+    <div className="relative min-h-screen flex flex-col">
+      {/* Background image + overlay */}
+      <div className="fixed inset-0 z-0" style={{ background: "url('/bg-lobby.png') center/cover no-repeat" }} />
+      <div className="fixed inset-0 z-0 bg-meadow/70" />
+
+      {/* Header */}
+      <header className="relative z-10 px-6 py-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-end gap-3">
+          {onOpenRankings && (
+            <button
+              onClick={onOpenRankings}
+              className="font-display text-[11px] text-text-dark px-3 py-1.5 bg-paper/80 backdrop-blur-sm border-2 border-text-dark/20 hover:border-gold rounded-[10px] shadow-[2px_2px_0_var(--color-paper-shadow)] cursor-pointer transition-colors hover:bg-[#FFF3D0]"
+            >
+              RANKINGS
+            </button>
+          )}
+          {isLocal ? <BurnerWallets /> : <ConnectButton accountStatus="address" chainStatus="icon" showBalance={false} />}
         </div>
       </header>
 
+      {/* Big Centered Title */}
+      <div className="relative z-10 text-center pt-2 pb-6">
+        <h1 className="font-display text-5xl md:text-6xl text-text-dark drop-shadow-[2px_3px_0_rgba(0,0,0,0.12)] animate-title-drop">
+          Buckshot Roulette
+        </h1>
+        <div className="mx-auto mt-2 w-32 h-1 rounded-full bg-gold/60" />
+      </div>
+
       {/* Content */}
-      <main className="flex-1 px-6 py-8">
+      <main className="relative z-10 flex-1 px-6 py-4">
         <div className="max-w-6xl mx-auto space-y-10">
           {error && (
             <div className="font-data text-sm text-blood text-center py-2">
@@ -107,7 +113,7 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
           )}
 
           {/* Active Games */}
-          <section>
+          <section className="glass-panel p-6">
             <div className="flex items-center gap-3 mb-5">
               <h2 className="font-display text-lg text-text-dark">
                 Active Games
@@ -143,9 +149,6 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
                 <div className="font-data text-sm text-text-light">
                   No active games
                 </div>
-                <div className="font-data text-xs text-text-light/60">
-                  Run <code className="text-text-dark bg-paper px-1.5 py-0.5 rounded border border-paper-shadow">make play-spectate</code> to start a game
-                </div>
               </div>
             )}
           </section>
@@ -159,12 +162,12 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
               <div className="flex-1 h-0.5 bg-paper-shadow/40" />
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {queues.map((queue) => (
+            <div className="max-w-sm mx-auto">
+              {filteredQueues.map((queue) => (
                 <QueueCard key={queue.buyIn.toString()} queue={queue} />
               ))}
-              {queues.length === 0 && connected && (
-                <div className="col-span-full text-center font-data text-sm text-text-light/60 py-8">
+              {filteredQueues.length === 0 && connected && (
+                <div className="text-center font-data text-sm text-text-light/60 py-8">
                   No queues available
                 </div>
               )}

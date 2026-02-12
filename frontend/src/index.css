@@ -383,6 +383,30 @@ body {
   100% { opacity: 0; transform: scale(1.6); }
 }
 
+/* ========================================
+   Glass Panel Utility
+   ======================================== */
+.glass-panel {
+  background: rgba(255, 253, 245, 0.85);
+  backdrop-filter: blur(4px);
+  border: 3px solid rgba(212, 197, 169, 0.4);
+  border-radius: 18px;
+  box-shadow: 4px 4px 0 var(--color-paper-shadow);
+}
+
+/* ========================================
+   Title Entrance Animation
+   ======================================== */
+@keyframes titleDrop {
+  0% { opacity: 0; transform: translateY(-20px) scale(0.95); }
+  60% { transform: translateY(4px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-title-drop {
+  animation: titleDrop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
 /* Scrollbar — warm theme */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

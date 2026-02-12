@@ -24,10 +24,15 @@ function CountdownTimer({ timeLeft }: { timeLeft: number }) {
   const isUrgent = timeLeft < 10
 
   return (
-    <div className={`font-display text-5xl tracking-wider ${
-      isUrgent ? 'text-blood animate-pulse' : 'text-gold'
-    }`}>
-      {minutes}:{seconds.toString().padStart(2, '0')}
+    <div className="glass-panel inline-block px-8 py-3">
+      <div className="font-display text-[10px] text-text-light mb-1">
+        Betting closes in
+      </div>
+      <div className={`font-display text-5xl tracking-wider ${
+        isUrgent ? 'text-blood animate-pulse' : 'text-gold'
+      }`}>
+        {minutes}:{seconds.toString().padStart(2, '0')}
+      </div>
     </div>
   )
 }
@@ -71,25 +76,23 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
   const myBetsTotal = betting.state?.myBets?.amounts?.reduce((sum, a) => sum + a, 0n) ?? 0n
 
   return (
-    <div className="min-h-screen bg-meadow flex flex-col">
+    <div className="relative min-h-screen flex flex-col">
+      {/* Background image + overlay */}
+      <div className="fixed inset-0 z-0" style={{ background: "url('/bg-lobby.png') center/cover no-repeat" }} />
+      <div className="fixed inset-0 z-0 bg-meadow/70" />
+
       {/* Header */}
-      <header className="border-b-3 border-paper-shadow/40 px-6 py-3">
+      <header className="relative z-10 px-6 py-3">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-4">
             {onBack && (
               <button
                 onClick={onBack}
-                className="font-display text-[11px] text-text-dark px-3 py-1.5 bg-paper border-2 border-text-dark/20 hover:border-gold rounded-[10px] shadow-[2px_2px_0_var(--color-paper-shadow)] cursor-pointer transition-colors hover:bg-[#FFF3D0]"
+                className="font-display text-[11px] text-text-dark px-3 py-1.5 bg-paper/80 backdrop-blur-sm border-2 border-text-dark/20 hover:border-gold rounded-[10px] shadow-[2px_2px_0_var(--color-paper-shadow)] cursor-pointer transition-colors hover:bg-[#FFF3D0]"
               >
                 LOBBY
               </button>
             )}
-            <h1 className="font-display text-lg text-text-dark">
-              Buckshot Roulette
-            </h1>
-            <span className="font-display text-[10px] px-2.5 py-1 bg-gold/20 text-text-dark border-2 border-gold/40 rounded-lg">
-              Betting
-            </span>
           </div>
 
           <div className="text-right">
@@ -103,13 +106,20 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
         </div>
       </header>
 
-      <main className="flex-1 px-6 py-8">
+      {/* Big Centered Title */}
+      <div className="relative z-10 text-center pt-1 pb-4">
+        <h1 className="font-display text-4xl md:text-5xl text-text-dark drop-shadow-[2px_3px_0_rgba(0,0,0,0.12)] animate-title-drop">
+          Buckshot Roulette
+        </h1>
+        <span className="inline-block mt-2 font-display text-[11px] px-3 py-1 bg-gold/20 text-text-dark border-2 border-gold/40 rounded-lg">
+          Betting
+        </span>
+      </div>
+
+      <main className="relative z-10 flex-1 px-6 py-4">
         <div className="max-w-5xl mx-auto space-y-8">
           {/* Countdown */}
           <div className="text-center space-y-2">
-            <div className="font-display text-sm text-text-light">
-              Betting closes in
-            </div>
             <CountdownTimer timeLeft={betting.timeLeft} />
             {betting.timeLeft === 0 && (
               <div className="font-data text-sm text-text-light animate-pulse">
@@ -119,20 +129,22 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
           </div>
 
           {/* Players list */}
-          <div className="flex justify-center gap-4">
-            {players.map((player, i) => {
-              const char = getCharacter(getOnChainName(player))
-              return (
-                <div key={player} className="text-center space-y-1">
-                  <img
-                    src={char.img}
-                    alt={char.name}
-                    className="w-14 h-14 rounded-[10px] object-contain bg-white/50 p-1 mx-auto border-2 border-alive/40"
-                  />
-                  <div className="font-data text-[10px] text-text-dark">{getLabel(player)}</div>
-                </div>
-              )
-            })}
+          <div className="glass-panel py-4 px-6">
+            <div className="flex justify-center gap-4">
+              {players.map((player, i) => {
+                const char = getCharacter(getOnChainName(player))
+                return (
+                  <div key={player} className="text-center space-y-1">
+                    <img
+                      src={char.img}
+                      alt={char.name}
+                      className="w-14 h-14 rounded-[10px] object-contain bg-white/50 p-1 mx-auto border-2 border-alive/40"
+                    />
+                    <div className="font-data text-[10px] text-text-dark">{getLabel(player)}</div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
           {/* Bet Type Tabs */}
@@ -153,7 +165,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
           </div>
 
           {/* Bet Form */}
-          <div className="bg-paper border-3 border-paper-shadow/40 rounded-[14px] p-6 space-y-5 shadow-[3px_3px_0_var(--color-paper-shadow)]">
+          <div className="glass-panel !bg-[rgba(255,253,245,0.9)] p-6 space-y-5">
             {/* Tab-specific content */}
             {activeTab === 'winner' && (
               <div className="space-y-3">
@@ -309,7 +321,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
                   min="0.001"
                   value={betAmount}
                   onChange={(e) => setBetAmount(e.target.value)}
-                  className="w-full bg-meadow border-2 border-paper-shadow/60 rounded-[10px] px-3 py-2
+                  className="w-full bg-meadow/60 border-2 border-paper-shadow/60 rounded-[10px] px-3 py-2
                              font-data text-sm text-text-dark outline-none focus:border-gold"
                 />
               </div>
@@ -334,7 +346,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
 
           {/* My Bets */}
           {myBetsCount > 0 && (
-            <div className="bg-paper border-2 border-paper-shadow/40 rounded-[14px] p-4 shadow-[2px_2px_0_var(--color-paper-shadow)]">
+            <div className="glass-panel !bg-[rgba(255,253,245,0.9)] p-4">
               <div className="font-display text-sm text-text-dark mb-3">
                 My Bets ({myBetsCount})
               </div>
