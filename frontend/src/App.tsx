@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useGameState } from './hooks/useGameState'
 import { useEventLog } from './hooks/useEventLog'
 import { usePlayerNames } from './hooks/usePlayerNames'
@@ -7,11 +6,9 @@ import { Phase } from './config/contracts'
 import { GameBoard } from './components/GameBoard'
 import { WaitingScreen } from './components/WaitingScreen'
 import { BettingPanel } from './components/BettingPanel'
-import { BurnerWallets } from './components/BurnerWallets'
 import { Lobby } from './components/Lobby'
 import { Rankings } from './components/Rankings'
 import { GameReplay } from './components/GameReplay'
-import { isLocal } from './config/wagmi'
 
 function GameView({
   gameId,
@@ -75,9 +72,6 @@ function App() {
 
   return (
     <div className="relative min-h-screen">
-      <div className="fixed top-3 right-4 z-[150]">
-        {isLocal ? <BurnerWallets /> : <ConnectButton accountStatus="address" chainStatus="icon" showBalance={false} />}
-      </div>
       {content}
     </div>
   )

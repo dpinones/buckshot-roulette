@@ -1,5 +1,8 @@
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useLobbyState, type QueueInfo } from '../hooks/useLobbyState'
 import { GameCard } from './GameCard'
+import { BurnerWallets } from './BurnerWallets'
+import { isLocal } from '../config/wagmi'
 
 interface LobbyProps {
   onSelectGame: (gameId: bigint) => void
@@ -80,7 +83,7 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
             </h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {onOpenRankings && (
               <button
                 onClick={onOpenRankings}
@@ -89,16 +92,7 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
                 RANKINGS
               </button>
             )}
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  connected ? 'bg-alive' : 'bg-blood animate-pulse'
-                }`}
-              />
-              <span className="font-data text-[11px] text-text-light">
-                {connected ? 'Connected' : 'Connecting...'}
-              </span>
-            </div>
+            {isLocal ? <BurnerWallets /> : <ConnectButton accountStatus="address" chainStatus="icon" showBalance={false} />}
           </div>
         </div>
       </header>
