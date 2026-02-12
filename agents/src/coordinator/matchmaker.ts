@@ -16,16 +16,18 @@ const buyIn = config.buyIn
 
 const WAIT_AFTER_JOIN_MS = 10_000 // wait 10s after detecting players before starting
 const MIN_PLAYERS = 4
+const RPC_DELAY_MS = 200 // delay between RPC calls to avoid 429 rate limits
+const POLL_INTERVAL_MS = 5_000 // how often to check the queue
 
 async function ensureReady(agent: Agent): Promise<boolean> {
-  const [balance, hasProfile] = await Promise.all([
-    publicClient.getBalance({ address: agent.address }),
-    publicClient.readContract({
-      ...profileContract,
-      functionName: 'hasProfile',
-      args: [agent.address],
-    }) as Promise<boolean>,
-  ])
+  const balance = await publicClient.getBalance({ address: agent.address })
+  await sleep(RPC_DELAY_MS)
+  const hasProfile = await publicClient.readContract({
+    ...profileContract,
+    functionName: 'hasProfile',
+    args: [agent.address],
+  }) as boolean
+  await sleep(RPC_DELAY_MS)
 
   if (balance < buyIn * 2n) {
     log.error(agent.name, `Insufficient balance: ${formatEther(balance)} MON`)
@@ -96,6 +98,7 @@ async function countAgentsInQueue(agents: Agent[]): Promise<number> {
       args: [agent.address],
     }) as boolean
     if (inQueue) count++
+    await sleep(RPC_DELAY_MS)
   }
   return count
 }
@@ -115,6 +118,7 @@ export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null
 
   while (true) {
     const queueLen = await getQueueLen()
+    await sleep(RPC_DELAY_MS)
     const agentsInQueue = await countAgentsInQueue(agents)
     const externalPlayers = queueLen - agentsInQueue
 
@@ -131,12 +135,14 @@ export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null
           functionName: 'isInQueue',
           args: [agent.address],
         }) as boolean
+        await sleep(RPC_DELAY_MS)
         if (inQueue) continue
         const ok = await joinAgent(agent)
         if (ok) joined++
-        await sleep(500)
+        await sleep(1000)
       }
 
+      await sleep(RPC_DELAY_MS)
       const afterJoinLen = await getQueueLen()
 
       if (afterJoinLen >= MIN_PLAYERS) {
@@ -148,7 +154,7 @@ export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null
         const finalLen = await getQueueLen()
         if (finalLen < MIN_PLAYERS) {
           log.system(`Queue dropped to ${finalLen}, need ${MIN_PLAYERS}. Waiting...`)
-          await sleep(config.pollIntervalMs)
+          await sleep(POLL_INTERVAL_MS)
           continue
         }
 
@@ -182,6 +188,6 @@ export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null
       }
     }
 
-    await sleep(config.pollIntervalMs)
+    await sleep(POLL_INTERVAL_MS)
   }
 }
