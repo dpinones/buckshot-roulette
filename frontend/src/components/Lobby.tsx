@@ -96,8 +96,9 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
       <header className="relative z-10 px-6 pt-5 pb-2">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
+            <img src="/characters/logo.png" alt="Fluffy Fate" className="h-12 md:h-14 drop-shadow-[2px_3px_0_rgba(0,0,0,0.1)]" />
             <h1 className="font-display text-4xl md:text-5xl text-text-dark drop-shadow-[2px_3px_0_rgba(0,0,0,0.1)]">
-              Buckshot Roulette
+              Fluffy Fate
             </h1>
             <div className="w-12 h-1.5 rounded-full bg-table-pink/60 hidden md:block" />
           </div>

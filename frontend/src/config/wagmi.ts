@@ -49,7 +49,7 @@ const rainbowConnectors = connectorsForWallets(
     },
   ],
   {
-    appName: 'Buckshot Roulette',
+    appName: 'Fluffy Fate',
     projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'buckshot-dev',
   }
 )

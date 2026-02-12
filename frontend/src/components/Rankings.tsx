@@ -59,7 +59,7 @@ export function Rankings({ onBack, onReplay }: RankingsProps) {
               LOBBY
             </button>
             <h1 className="font-display text-lg text-text-dark">
-              Buckshot Roulette
+              Fluffy Fate
             </h1>
           </div>
         </div>

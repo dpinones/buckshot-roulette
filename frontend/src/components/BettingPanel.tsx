@@ -216,7 +216,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
             )}
             <div>
               <h1 className="font-display text-3xl text-text-dark leading-tight">
-                Buckshot Roulette
+                Fluffy Fate
               </h1>
               <span className="font-display text-xs px-2.5 py-0.5 bg-table-pink/30 text-[#9A6B8F] border border-table-border/40 rounded-lg">
                 Betting

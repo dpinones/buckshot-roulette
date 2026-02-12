@@ -10,7 +10,7 @@ export function WaitingScreen({ connected, error }: WaitingScreenProps) {
         {/* Title */}
         <div className="space-y-3">
           <h1 className="font-display text-4xl text-text-dark">
-            Buckshot Roulette
+            Fluffy Fate
           </h1>
           <div className="h-0.5 w-48 mx-auto bg-paper-shadow" />
         </div>
