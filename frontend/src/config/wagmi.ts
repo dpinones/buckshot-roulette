@@ -15,7 +15,7 @@ export const monadTestnet = defineChain({
   name: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://testnet-rpc.monad.xyz'] },
+    default: { http: [import.meta.env.VITE_RPC_URL || 'https://testnet-rpc.monad.xyz'] },
   },
   blockExplorers: {
     default: { name: 'Monad Explorer', url: 'https://testnet.monadexplorer.com' },
@@ -61,7 +61,8 @@ const burnerConnectors = isLocal
     )
   : []
 
-const rpcUrl = isTestnet ? 'https://testnet-rpc.monad.xyz' : 'http://127.0.0.1:8545'
+const testnetRpc = import.meta.env.VITE_RPC_URL || 'https://testnet-rpc.monad.xyz'
+const rpcUrl = isTestnet ? testnetRpc : 'http://127.0.0.1:8545'
 
 export const config = isTestnet
   ? createConfig({
@@ -78,7 +79,7 @@ export const config = isTestnet
 export const publicClient = createPublicClient({
   chain: activeChain,
   transport: http(
-    isTestnet ? 'https://testnet-rpc.monad.xyz' : 'http://127.0.0.1:8545'
+    isTestnet ? testnetRpc : 'http://127.0.0.1:8545'
   ),
 })
 
