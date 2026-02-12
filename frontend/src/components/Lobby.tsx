@@ -13,7 +13,7 @@ function shortAddr(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
-const MIN_PLAYERS = 2
+const MIN_PLAYERS = 5
 
 function QueueCard({ queue }: { queue: QueueInfo }) {
   const progress = Math.min(queue.playerCount / MIN_PLAYERS, 1)
