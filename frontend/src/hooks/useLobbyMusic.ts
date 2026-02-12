@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 const LOBBY_TRACK = '/music/Lobby.mp3'
 const MUSIC_MAX_VOL = 0.4
@@ -16,54 +16,55 @@ function getStoredVolume(): number {
 
 /**
  * Plays Lobby.mp3 on loop with fade-in on mount, fade-out on unmount.
- * Reads master volume from the same localStorage key as useAudio.
+ * Returns volume + setVolume so callers can wire up a VolumeControl.
  */
 export function useLobbyMusic() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const fadeRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const [volume, setVolumeState] = useState(getStoredVolume)
+  const volumeRef = useRef(volume)
+
+  const setVolume = useCallback((v: number) => {
+    const clamped = Math.max(0, Math.min(1, Math.round(v * 20) / 20))
+    volumeRef.current = clamped
+    setVolumeState(clamped)
+    try { localStorage.setItem(VOLUME_KEY, String(clamped)) } catch {}
+    if (audioRef.current && !audioRef.current.paused) {
+      audioRef.current.volume = MUSIC_MAX_VOL * clamped
+    }
+  }, [])
+
   useEffect(() => {
-    const vol = getStoredVolume()
-    const maxVol = MUSIC_MAX_VOL * vol
+    const maxVol = MUSIC_MAX_VOL * volumeRef.current
 
     const audio = new Audio(LOBBY_TRACK)
     audio.loop = true
     audio.volume = 0
     audioRef.current = audio
 
-    // Fade in
-    audio.play().then(() => {
-      const step = maxVol / (FADE_DURATION / FADE_STEP)
+    function fadeIn() {
+      const target = MUSIC_MAX_VOL * volumeRef.current
+      const step = target / (FADE_DURATION / FADE_STEP)
       fadeRef.current = setInterval(() => {
-        if (audio.volume + step >= maxVol) {
-          audio.volume = maxVol
+        if (audio.volume + step >= target) {
+          audio.volume = target
           if (fadeRef.current) clearInterval(fadeRef.current)
           fadeRef.current = null
         } else {
-          audio.volume = Math.min(audio.volume + step, maxVol)
+          audio.volume = Math.min(audio.volume + step, target)
         }
       }, FADE_STEP)
-    }).catch(() => {
-      // Autoplay blocked — start on first click
+    }
+
+    audio.play().then(fadeIn).catch(() => {
       function handleClick() {
-        audio.play().then(() => {
-          const step = maxVol / (FADE_DURATION / FADE_STEP)
-          fadeRef.current = setInterval(() => {
-            if (audio.volume + step >= maxVol) {
-              audio.volume = maxVol
-              if (fadeRef.current) clearInterval(fadeRef.current)
-              fadeRef.current = null
-            } else {
-              audio.volume = Math.min(audio.volume + step, maxVol)
-            }
-          }, FADE_STEP)
-        }).catch(() => {})
+        audio.play().then(fadeIn).catch(() => {})
         document.removeEventListener('click', handleClick)
       }
       document.addEventListener('click', handleClick)
     })
 
-    // Cleanup: fade out then stop
     return () => {
       if (fadeRef.current) {
         clearInterval(fadeRef.current)
@@ -84,4 +85,6 @@ export function useLobbyMusic() {
       audioRef.current = null
     }
   }, [])
+
+  return { volume, setVolume }
 }

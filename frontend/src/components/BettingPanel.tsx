@@ -7,6 +7,7 @@ import { useBetting } from '../hooks/useBetting'
 import { usePlayerNames } from '../hooks/usePlayerNames'
 import { useLobbyMusic } from '../hooks/useLobbyMusic'
 import { getCharacter } from '../config/characters'
+import { VolumeControl } from './VolumeControl'
 import { BurnerWallets } from './BurnerWallets'
 import { isLocal } from '../config/wagmi'
 
@@ -120,7 +121,7 @@ function BettingCharacter({
 }
 
 export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
-  useLobbyMusic()
+  const { volume, setVolume } = useLobbyMusic()
   const { address: wallet } = useAccount()
   const betting = useBetting(gameId)
   const names = usePlayerNames(state.players)
@@ -471,6 +472,11 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
         <div className="text-center font-data text-sm text-text-light pb-2">
           Winner pool: {betting.winnerPoolFormatted} ETH
         </div>
+      </div>
+
+      {/* Volume control */}
+      <div className="fixed bottom-5 right-5 z-50">
+        <VolumeControl volume={volume} setVolume={setVolume} />
       </div>
     </div>
   )
