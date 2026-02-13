@@ -180,30 +180,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
       <div className="fixed inset-0 z-0" style={{ background: "url('/bg-lobby.png') center/cover no-repeat" }} />
       <div className="fixed inset-0 z-0 bg-meadow/70" />
 
-      {/* Wallet not connected overlay */}
-      {!wallet && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-meadow/60 backdrop-blur-sm">
-          <div className="glass-panel p-8 max-w-md w-full mx-4 text-center space-y-5" style={{ background: 'rgba(255,253,245,0.95)' }}>
-            <div className="space-y-2">
-              <h2 className="font-display text-2xl text-text-dark">Connect Wallet</h2>
-              <p className="font-data text-sm text-text-light">
-                You need a connected wallet to place bets on this game.
-              </p>
-            </div>
-            <div className="flex justify-center">
-              {isLocal ? <BurnerWallets /> : <ConnectButton />}
-            </div>
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="font-display text-sm text-text-light hover:text-text-dark transition-colors cursor-pointer"
-              >
-                Back to Lobby
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Wallet not connected — inline hint instead of blocking overlay */}
 
       {/* Header row */}
       <header className="relative z-10 px-6 pt-4 pb-2">
