@@ -90,7 +90,11 @@ async function joinAgent(agent: Agent): Promise<boolean> {
       args: [buyIn],
       value: buyIn,
     } as any)
-    await publicClient.waitForTransactionReceipt({ hash })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash })
+    if (receipt.status === 'reverted') {
+      log.error(agent.name, `joinQueue tx reverted (${hash})`)
+      return false
+    }
     log.info(agent.name, 'Joined queue')
     return true
   } catch (e) {
@@ -127,43 +131,6 @@ async function countAgentsInQueue(agents: Agent[]): Promise<number> {
     await sleep(RPC_DELAY_MS)
   }
   return count
-}
-
-/**
- * Check active games for one that contains any of our agents.
- * This catches games created by external callers (e.g. the frontend).
- */
-async function findGameWithAgents(agents: Agent[]): Promise<bigint | null> {
-  try {
-    const activeGameIds = await publicClient.readContract({
-      ...factoryContract,
-      functionName: 'getActiveGames',
-    }) as bigint[]
-
-    const gameContract = { address: addresses.buckshotGame as Address, abi: buckshotGameAbi } as const
-    const agentAddrs = new Set(agents.map((a) => a.address.toLowerCase()))
-
-    // Search from newest to oldest — the game we're looking for is the most recent one
-    for (let i = activeGameIds.length - 1; i >= 0; i--) {
-      const gameId = activeGameIds[i]
-      await sleep(RPC_DELAY_MS)
-      const players = await publicClient.readContract({
-        ...gameContract,
-        functionName: 'getPlayers',
-        args: [gameId],
-      }) as Address[]
-
-      const hasAgent = players.some((p) => agentAddrs.has(p.toLowerCase()))
-      if (hasAgent) {
-        log.system(`Found existing game #${gameId} with our agents (created externally)`)
-        return gameId
-      }
-    }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    log.warn('Matchmaker', `Failed to scan active games: ${msg.slice(0, 80)}`)
-  }
-  return null
 }
 
 /**
@@ -211,7 +178,8 @@ export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null
         await sleep(1000)
       }
 
-      await sleep(RPC_DELAY_MS)
+      // Wait for RPC to catch up with recent join txs (Monad testnet needs extra time)
+      await sleep(5000)
       const afterJoinLen = await getQueueLen()
 
       if (afterJoinLen >= MIN_PLAYERS) {
@@ -222,11 +190,7 @@ export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null
         // Final check — start with however many are in the queue now (min 4, max 6)
         const finalLen = await getQueueLen()
         if (finalLen < MIN_PLAYERS) {
-          // Queue emptied — someone else likely started the game
-          log.system(`Queue dropped to ${finalLen}. Checking for externally created game...`)
-          const extGame = await findGameWithAgents(agents)
-          if (extGame !== null) return extGame
-          log.system('No game found, continuing to watch...')
+          log.system(`Queue dropped to ${finalLen}, players may have left. Continuing to watch...`)
           await sleep(POLL_INTERVAL_MS)
           continue
         }
@@ -253,11 +217,9 @@ export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null
           return gameId
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e)
-          // If startGame fails, someone else may have started it
-          log.warn('Matchmaker', `startGame failed: ${msg.slice(0, 80)}`)
-          const extGame = await findGameWithAgents(agents)
-          if (extGame !== null) return extGame
-          return null
+          log.warn('Matchmaker', `startGame failed: ${msg.slice(0, 80)}. Retrying...`)
+          await sleep(POLL_INTERVAL_MS)
+          continue
         }
       } else {
         log.system(`Queue at ${afterJoinLen}/${MIN_PLAYERS}, waiting for more players...`)
