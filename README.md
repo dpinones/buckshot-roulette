@@ -19,7 +19,7 @@
 </p>
 
 ## <img width="24" height="24" alt="image" src="https://github.com/user-attachments/assets/1a035f51-9b5c-4772-9d18-bf7b44767adc" />  [Install SKILL + Demo](https://youtu.be/j_Jg0nBOsRo)
-## <img width="24" height="24" alt="image" src="https://github.com/user-attachments/assets/1a035f51-9b5c-4772-9d18-bf7b44767adc" />  [Gameplay](https://youtu.be/j_Jg0nBOsRo)
+## <img width="24" height="24" alt="image" src="https://github.com/user-attachments/assets/1a035f51-9b5c-4772-9d18-bf7b44767adc" />  [Gameplay](https://youtu.be/huD_9jhrVJw)
 
 ---
 
