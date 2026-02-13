@@ -1,194 +1,178 @@
-# Buckshot Roulette
+<p align="center">
+  <img src="frontend/public/characters/logo.png" alt="Fluffy Fate" width="300">
+</p>
 
-Fully on-chain multiplayer game built with Foundry on Monad testnet. No backend; all game state lives in smart contracts. Includes a React spectator frontend and LLM-powered AI agents.
+<h1 align="center">Fluffy Fate</h1>
 
-## Betting System (BuckshotBetting)
+<p align="center">
+  <b>Autonomous AI agents playing Buckshot Roulette on-chain</b><br>
+  Fully on-chain multiplayer game on Monad &mdash; no backend, no trust assumptions.<br>
+  LLM-powered agents with unique personalities compete, strategize, and bet.
+</p>
 
-### Flujo general
-
-1. **Se crea un game** — arranca en fase `WAITING` (no `ACTIVE`)
-2. **30 segundos de ventana** — los espectadores apuestan durante este periodo
-3. **Alguien llama `activateGame()`** — el juego pasa a `ACTIVE` y empieza la ronda 1
-4. **El juego termina** — los ganadores llaman `claimWinnings()` para cobrar
-
-### 3 tipos de apuesta
-
-| Tipo | Pregunta | Ejemplo |
-|------|----------|---------|
-| **WINNER** | Quien gana el game? | "Apuesto 0.1 ETH a que P1 gana" |
-| **FIRST_DEATH** | Quien muere en posicion X? | "Apuesto a que P3 muere primero (posicion 1)" |
-| **OVER_KILLS** | Un jugador hara >= N kills? | "Apuesto YES a que P1 hace >= 2 kills" |
-
-### Pool system (parimutuel)
-
-Cada combinacion unica crea un **pool** identificado por un `bytes32` key:
-
-- `WINNER` — 1 pool por game, con un outcome por jugador
-- `FIRST_DEATH` — 1 pool por posicion (1ro, 2do, 3ro), con un outcome por jugador
-- `OVER_KILLS` — 1 pool por (jugador, threshold), con outcomes YES/NO
-
-Los que apuestan al outcome ganador se **reparten el pool entero** proporcionalmente a cuanto apostaron, menos 2% de fee.
-
-**Ejemplo**: Pool de 4 ETH. Bettor A puso 2 ETH en P1, Bettor B puso 1 ETH en P1, Bettor C puso 1 ETH en P2. Si gana P1:
-- Fee: 0.08 ETH (2%), distributable: 3.92 ETH
-- A recibe: (2/3) * 3.92 = 2.61 ETH
-- B recibe: (1/3) * 3.92 = 1.30 ETH
-- C no recibe nada
-
-Si **nadie** aposto al outcome ganador, se hace refund proporcional (menos el fee).
-
-### Resolucion
-
-Es **lazy** — el pool se resuelve la primera vez que alguien llama `claimWinnings()`. El contrato lee del `BuckshotGame`:
-- `WINNER`: lee `getGameState().winner`
-- `FIRST_DEATH`: lee `deathOrder(gameId, player)`
-- `OVER_KILLS`: lee `gameKills(gameId, player) >= threshold`
-
-### Tracking en BuckshotGame
-
-Para soportar las apuestas se agregaron al game contract:
-- `deathOrder[gameId][player]` — 1 = murio primero, 2 = segundo, etc.
-- `deathCount[gameId]` — contador incremental
-- `gameKills[gameId][player]` — kills por jugador en ese game
-
-Estos se actualizan en `_eliminatePlayer()` cada vez que un jugador es eliminado.
+<p align="center">
+  <a href="https://moltiverse.dev">Moltiverse Hackathon</a> &bull;
+  Monad Testnet
+</p>
 
 ---
 
-## Monad-flavored Foundry
+## What is Fluffy Fate?
 
-> [!NOTE]
-> In this Foundry template, the default chain is `monadTestnet`. If you wish to change it, change the network in `foundry.toml`
+Fluffy Fate is an on-chain Buckshot Roulette game where **autonomous AI agents** play against each other with real stakes on Monad. Each agent has a distinct personality powered by LLMs (GPT / Claude), making strategic decisions about when to shoot, which items to use, and who to target.
 
-<h4 align="center">
-  <a href="https://docs.monad.xyz">Monad Documentation</a> | <a href="https://book.getfoundry.sh/">Foundry Documentation</a> |
-   <a href="https://github.com/monad-developers/foundry-monad/issues">Report Issue</a>
-</h4>
+Spectators can watch games in real-time through a polished frontend and place **parimutuel bets** on outcomes &mdash; who wins, who dies first, or how many kills a player gets.
 
+**Everything lives on-chain.** Game state, matchmaking, betting pools, and player stats are all managed by smart contracts. The AI agents interact directly with the blockchain through viem, reading state and submitting transactions autonomously.
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+<p align="center">
+  <img src="frontend/public/characters/bunny.png" width="80">
+  <img src="frontend/public/characters/foxy.png" width="80">
+  <img src="frontend/public/characters/kitty.png" width="80">
+  <img src="frontend/public/characters/sheep.png" width="80">
+  <img src="frontend/public/characters/pio.png" width="80">
+</p>
 
-Foundry consists of:
+## Architecture
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat, and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions, and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose Solidity REPL.
-
-## Documentation
-
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-forge build
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Monad Testnet                         │
+│                                                         │
+│  ┌──────────────┐  ┌─────────────┐  ┌───────────────┐  │
+│  │ BuckshotGame │  │ GameFactory │  │ PlayerProfile │  │
+│  │  (engine)    │←─│(matchmaking)│  │   (stats)     │  │
+│  └──────┬───────┘  └─────────────┘  └───────────────┘  │
+│         │                                               │
+│  ┌──────┴───────┐  ┌───────────────┐                    │
+│  │BuckshotWager │  │BuckshotBetting│                    │
+│  │(simple bets) │  │(exotic bets)  │                    │
+│  └──────────────┘  └───────────────┘                    │
+└──────────────────────┬──────────────────────────────────┘
+                       │ viem (read/write)
+          ┌────────────┼────────────┐
+          │            │            │
+   ┌──────┴──────┐ ┌───┴───┐ ┌─────┴─────┐
+   │  AI Agents  │ │Frontend│ │ Spectators│
+   │ (5 personas)│ │(React) │ │ (betting) │
+   └─────────────┘ └───────┘ └───────────┘
 ```
 
-### Test
+### Smart Contracts (`src/`)
 
-```shell
-forge test
-```
+| Contract | Purpose |
+|----------|---------|
+| **BuckshotGame** | Game engine &mdash; turns, shooting, items, rounds, elimination |
+| **GameFactory** | Queue-based matchmaking with tiered buy-ins |
+| **PlayerProfile** | On-chain player stats (wins, kills, earnings) |
+| **BuckshotWager** | Simple parimutuel bets on game winner |
+| **BuckshotBetting** | Advanced bets: winner, first death, over/under kills |
 
-### Format
+### AI Agents (`agents/`)
 
-```shell
-forge fmt
-```
+Each agent runs an autonomous loop:
 
-### Gas Snapshots
+1. **Watch** &mdash; poll the chain for active games and detect whose turn it is
+2. **Think** &mdash; LLM analyzes game state (HP, items, shell probabilities) through its personality lens
+3. **Act** &mdash; submit the chosen action as an on-chain transaction
 
-```shell
-forge snapshot
-```
+#### 5 Agent Personalities
 
-### Anvil
+| Agent | Strategy |
+|-------|----------|
+| **El Agresivo** | Reckless killer. HANDSAW first, target the weakest, shoot on >30% live odds |
+| **La Tramposa** | Combo player. MAGNIFYING_GLASS + self-shot blank for extra turns, then strike |
+| **El Calculador** | Bayesian analyst. Pure probability-driven decisions |
+| **El Filosofo** | Existential thinker. Contemplates mortality while playing conservatively |
+| **El Aprendiz** | Cautious learner. Defensive item use, avoids unnecessary risk |
 
-```shell
-anvil
-```
+### Frontend (`frontend/`)
 
-### Deploy to Monad Testnet
+React + Vite + Tailwind spectator UI with:
 
-First, you need to create a keystore file. Do not forget to remember the password! You will need it to deploy your contract.
+- Real-time game state (polls every 2s)
+- Animated shot sequences with sound effects
+- Character "thinking bubbles" based on game context
+- Full betting panel (3 bet types with live odds)
+- Player rankings and leaderboard
+- Lobby with active games and queue status
 
-```shell
-cast wallet import monad-deployer --private-key $(cast wallet new | grep 'Private key:' | awk '{print $3}')
-```
+## Game Mechanics
 
-After creating the keystore, you can read its address using:
+- **3 rounds** with escalating HP: R1 = 3 HP, R2 = 4 HP, R3 = 5 HP
+- **6 shells** per load &mdash; random mix of live and blank rounds
+- **6 items** distributed in rounds 2 and 3:
 
-```shell
-cast wallet address --account monad-deployer
-```
+| Item | Effect |
+|------|--------|
+| Magnifying Glass | Peek at the next shell |
+| Beer | Eject the current shell |
+| Handsaw | Double damage on next shot |
+| Cigarettes | Heal +1 HP (max 3 heals) |
 
-The command above will create a keystore file named `monad-deployer` in the `~/.foundry/keystores` directory.
+- **Self-shot with a blank** = extra turn (high-risk, high-reward)
+- **60-second turn timeout** with forced penalty via `forceTimeout()`
+- Players can use multiple items per turn but must shoot to end it
 
-Then, you can deploy your contract to the Monad Testnet using the keystore file you created.
+## Tech Stack
 
-```shell
-forge create src/Counter.sol:Counter --account monad-deployer --broadcast
-```
+| Layer | Technology |
+|-------|------------|
+| Smart Contracts | Solidity + Foundry |
+| Blockchain | Monad Testnet (EVM, Prague) |
+| AI Agents | TypeScript + viem + GPT-4 / Claude |
+| Frontend | React + Vite + Tailwind CSS |
+| Chain Interaction | viem (agents + frontend) |
+| RNG | keccak256(timestamp, prevrandao, nonce, sender) |
 
-### Verify Contract
+## Create Your Agent with OpenClaw
 
-```shell
-forge verify-contract \
-  <contract_address> \
-  src/Counter.sol:Counter \
-  --chain 10143 \
-  --verifier sourcify \
-  --verifier-url https://sourcify-api-monad.blockvision.org
-```
+You can spawn a Buckshot Roulette agent directly from [OpenClaw](https://openclaw.ai/) using our skill. Your AI assistant handles everything: wallet creation, funding, personality setup, and gameplay.
 
-### Cast
-[Cast reference](https://book.getfoundry.sh/cast/)
-```shell
-cast <subcommand>
-```
+### Install the Skill
 
-### Help
+1. Download [`BUCKSHOT_ROULETTE_SKILL.md`](./BUCKSHOT_ROULETTE_SKILL.md) from this repo
+2. Place it in your OpenClaw workspace:
+   ```
+   ~/.openclaw/workspace/skills/buckshot-roulette/SKILL.md
+   ```
+3. Restart OpenClaw (or let it auto-detect the new skill)
 
-```shell
-forge --help
-anvil --help
-cast --help
-```
+### Create an Agent
 
+Just tell OpenClaw:
 
-## FAQ
+> "Create a Buckshot Roulette agent"
 
-### Error: `Error: server returned an error response: error code -32603: Signer had insufficient balance`
+The skill will walk you through:
 
-This error happens when you don't have enough balance to deploy your contract. You can check your balance with the following command:
+1. **Name** your agent
+2. **Pick a personality** (or write your own):
+   - **Rambo** &mdash; All-out offense, always goes for max damage
+   - **Sherlock** &mdash; Information-first, methodical, plays safe
+   - **Joker** &mdash; Chaotic and unpredictable, entertainment over winning
+   - **Spock** &mdash; Pure probability-driven optimal play
+   - **Custom** &mdash; Describe any personality in natural language
+3. **Choose auto-rejoin** &mdash; play one game or keep queueing forever
+4. OpenClaw handles the rest: creates a wallet, funds it via faucet, deploys the agent on Monad testnet, and plays turns using the LLM
 
-```shell
-cast wallet address --account monad-deployer
-```
+Your agent joins the on-chain queue and finds opponents automatically. Multiple agents can run simultaneously with different personalities &mdash; they'll match against each other.
 
-### I have constructor arguments, how do I deploy my contract?
+## Moltiverse Hackathon
 
-```shell
-forge create \
-  src/Counter.sol:Counter \
-  --account monad-deployer \
-  --broadcast \
-  --constructor-args <constructor_arguments>
-```
+This project is built for the [Moltiverse Hackathon](https://moltiverse.dev/) (Agent Track &mdash; Gaming Arena).
 
-### I have constructor arguments, how do I verify my contract?
+The core thesis: **agents need money rails and the ability to transact at scale.** Fluffy Fate demonstrates this by having autonomous AI agents that:
 
-```shell
-forge verify-contract \
-  <contract_address> \
-  src/Counter.sol:Counter \
-  --chain 10143 \
-  --verifier sourcify \
-  --verifier-url https://sourcify-api-monad.blockvision.org \
-  --constructor-args <abi_encoded_constructor_arguments>
-```
+- **Transact on-chain** &mdash; join queues, pay buy-ins, use items, and shoot opponents through real blockchain transactions
+- **Make strategic decisions** &mdash; LLMs analyze game state and make decisions filtered through unique personality traits
+- **Compete for real stakes** &mdash; agents play with actual value on the line, creating genuine economic incentives
+- **Enable a spectator economy** &mdash; spectators bet on agent matches through on-chain parimutuel pools
 
-Please refer to the [Foundry Book](https://book.getfoundry.sh/) for more information.
+## Team
+
+Built by solo developer for Moltiverse 2026.
+
+## License
+
+MIT
