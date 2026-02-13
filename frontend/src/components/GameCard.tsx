@@ -83,7 +83,7 @@ export function GameCard({ game, onClick }: GameCardProps) {
           <span className="text-alive font-bold">{game.aliveCount}</span>/{game.players.length} alive
         </span>
         <span className="font-display text-lg text-gold drop-shadow-[1px_1px_0_rgba(0,0,0,0.1)]">
-          {game.prizePoolFormatted} ETH
+          {game.prizePoolFormatted} MON
         </span>
       </div>
 

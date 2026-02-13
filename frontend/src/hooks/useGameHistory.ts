@@ -36,9 +36,9 @@ export function useGameHistory(pollInterval = 10000) {
 
         if (!active) return
 
-        // For each ended game, get the full game state to know players
+        // For each ended game, get the full game state to know players (ignore legacy games < 17)
         const finishedGames = await Promise.all(
-          endedLogs.map(async (log) => {
+          endedLogs.filter((l) => l.args.gameId! >= 40n).map(async (log) => {
             const gameId = log.args.gameId!
             const gameView = await client.readContract({
               address: ADDRESSES.buckshotGame,

@@ -155,8 +155,8 @@ export function useGameReplay(gameId: bigint) {
             replayEvents.push({
               id: nextId++,
               type: 'game_created',
-              message: `Game created with ${players.length} players (${buyIn} ETH buy-in)`,
-              segments: [seg(`Game created with ${players.length} players (${buyIn} ETH buy-in)`)],
+              message: `Game created with ${players.length} players (${buyIn} MON buy-in)`,
+              segments: [seg(`Game created with ${players.length} players (${buyIn} MON buy-in)`)],
               icon: '\u{1F3AE}',
               state: cloneState(state),
             })
@@ -331,8 +331,8 @@ export function useGameReplay(gameId: bigint) {
             replayEvents.push({
               id: nextId++,
               type: 'game_end',
-              message: `GAME OVER! ${label(winner, state.players, nameMap)} wins! Prize: ${prize} ETH`,
-              segments: [seg('GAME OVER! '), winnerS, seg(` wins! Prize: ${prize} ETH`)],
+              message: `GAME OVER! ${label(winner, state.players, nameMap)} wins! Prize: ${prize} MON`,
+              segments: [seg('GAME OVER! '), winnerS, seg(` wins! Prize: ${prize} MON`)],
               icon: '\u{1F3C6}',
               state: cloneState(state),
             })

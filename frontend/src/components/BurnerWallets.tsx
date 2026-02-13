@@ -51,7 +51,7 @@ function useClaimableRewards(address: Address | undefined) {
 
         const results: ClaimableGame[] = []
 
-        for (let i = 0n; i < nextId; i++) {
+        for (let i = 17n; i < nextId; i++) {
           const phase = await publicClient.readContract({
             address: ADDRESSES.buckshotGame,
             abi: buckshotGameAbi,
@@ -142,7 +142,7 @@ export function BurnerWallets() {
                        shadow-[2px_2px_0_var(--color-paper-shadow)]
                        disabled:opacity-50"
           >
-            {claiming ? 'CLAIMING...' : `CLAIM ${parseFloat(formatEther(totalClaimable)).toFixed(4)} ETH`}
+            {claiming ? 'CLAIMING...' : `CLAIM ${parseFloat(formatEther(totalClaimable)).toFixed(4)} MON`}
           </button>
         )}
         <div className="flex items-center bg-paper border-2 border-text-dark/20 rounded-[10px] shadow-[2px_2px_0_var(--color-paper-shadow)] overflow-hidden">
@@ -152,7 +152,7 @@ export function BurnerWallets() {
               {parseFloat(formatEther(balance)).toFixed(4)}
             </span>
             <span className="font-display text-[9px] text-text-light/60">
-              ETH
+              MON
             </span>
           </div>
           <div className="px-2.5 py-1.5 border-r border-text-dark/10">

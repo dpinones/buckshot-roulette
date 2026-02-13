@@ -43,7 +43,7 @@ export function Rankings({ onBack, onReplay }: RankingsProps) {
     { key: 'winRate', label: 'Win %', short: '%' },
     { key: 'kills', label: 'Kills', short: 'K' },
     { key: 'kd', label: 'K/D', short: 'K/D' },
-    { key: 'totalEarnings', label: 'Earnings', short: 'ETH' },
+    { key: 'totalEarnings', label: 'Earnings', short: 'MON' },
   ]
 
   return (
@@ -166,7 +166,7 @@ export function Rankings({ onBack, onReplay }: RankingsProps) {
                       {shortAddr(game.winner)}
                     </span>
                     <span className="font-display text-sm text-gold">
-                      {game.prizeFormatted} ETH
+                      {game.prizeFormatted} MON
                     </span>
                     <span className="font-display text-[10px] text-transparent group-hover:text-gold transition-colors ml-2">
                       REPLAY

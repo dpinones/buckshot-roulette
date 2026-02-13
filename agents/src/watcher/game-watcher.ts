@@ -140,10 +140,13 @@ export class GameWatcher {
         ...contract,
         functionName: 'activateGame',
         args: [gameId],
-        gas: 500_000n,
       } as any)
 
-      await publicClient.waitForTransactionReceipt({ hash })
+      const receipt = await publicClient.waitForTransactionReceipt({ hash })
+      if (receipt.status === 'reverted') {
+        log.warn('Activator', `activateGame tx reverted (hash: ${hash.slice(0, 18)}...)`)
+        return
+      }
       log.game(`Game #${gameId} ACTIVATED!`)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)

@@ -94,7 +94,7 @@ export function PlayerStatsModal({ address, label, onClose }: PlayerStatsModalPr
     { label: 'K/D', value: stats.kd },
     { label: 'Shots Fired', value: String(stats.shotsFired) },
     { label: 'Items Used', value: String(stats.itemsUsed) },
-    { label: 'Earnings', value: `${stats.totalEarnings} ETH`, color: 'text-gold' },
+    { label: 'Earnings', value: `${stats.totalEarnings} MON`, color: 'text-gold' },
   ] : []
 
   return (

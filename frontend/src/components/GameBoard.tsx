@@ -439,7 +439,7 @@ export function GameBoard({ state, prevState, events, onBack }: GameBoardProps) 
             Round {dCurrentRound}
           </div>
           <div className="inline-flex items-center gap-2 bg-[rgba(255,215,0,0.9)] border-[2.5px] border-[#DAA520] rounded-3xl px-4 py-1.5 font-data text-base font-bold text-text-dark shadow-[0_3px_8px_rgba(0,0,0,0.12)]">
-            {'\u{1F3C6}'} {state.prizePoolFormatted} ETH
+            {'\u{1F3C6}'} {state.prizePoolFormatted} MON
           </div>
         </div>
         <VolumeControl volume={volume} setVolume={setVolume} />

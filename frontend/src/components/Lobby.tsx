@@ -1,6 +1,8 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useLobbyState, type QueueInfo } from '../hooks/useLobbyState'
+import { useLobbyMusic } from '../hooks/useLobbyMusic'
 import { GameCard } from './GameCard'
+import { VolumeControl } from './VolumeControl'
 import { BurnerWallets } from './BurnerWallets'
 import { isLocal } from '../config/wagmi'
 
@@ -13,11 +15,7 @@ function shortAddr(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
-const MIN_PLAYERS = 2
-
 function QueueCard({ queue }: { queue: QueueInfo }) {
-  const progress = Math.min(queue.playerCount / MIN_PLAYERS, 1)
-
   return (
     <div className="glass-panel p-5">
       {/* Header row */}
@@ -26,25 +24,10 @@ function QueueCard({ queue }: { queue: QueueInfo }) {
           <span className="font-display text-xl text-gold drop-shadow-[1px_1px_0_rgba(0,0,0,0.15)]">
             {queue.buyInFormatted}
           </span>
-          <span className="font-data text-sm text-text-light ml-2">ETH buy-in</span>
+          <span className="font-data text-sm text-text-light ml-2">MON buy-in</span>
         </div>
         <div className="font-data text-sm text-text-light">
-          <span className="text-table-border font-bold text-base">{queue.playerCount}</span>/{MIN_PLAYERS} to start
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="mb-3">
-        <div className="h-3 bg-table-pink/20 rounded-full overflow-hidden border border-table-border/30">
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{
-              width: `${progress * 100}%`,
-              background: progress >= 1
-                ? 'linear-gradient(90deg, var(--color-alive), #8FD88F)'
-                : 'linear-gradient(90deg, var(--color-table-pink), var(--color-agro))',
-            }}
-          />
+          <span className="text-table-border font-bold text-base">{queue.playerCount}</span> in queue
         </div>
       </div>
 
@@ -82,6 +65,7 @@ function SectionHeader({ title, badge }: { title: string; badge?: React.ReactNod
 }
 
 export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
+  const { volume, setVolume } = useLobbyMusic()
   const { queues, games, connected, error } = useLobbyState(3000)
 
   const filteredQueues = queues.filter((q) => q.buyIn === 10_000_000_000_000n)
@@ -178,6 +162,11 @@ export function Lobby({ onSelectGame, onOpenRankings }: LobbyProps) {
           </section>
         </div>
       </main>
+
+      {/* Volume control */}
+      <div className="fixed bottom-5 right-5 z-50">
+        <VolumeControl volume={volume} setVolume={setVolume} />
+      </div>
     </div>
   )
 }

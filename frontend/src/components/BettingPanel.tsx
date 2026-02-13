@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { type Address, parseEther, formatEther } from 'viem'
 import { useAccount } from 'wagmi'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { type GameState } from '../hooks/useGameState'
 import { useBetting } from '../hooks/useBetting'
 import { usePlayerNames } from '../hooks/usePlayerNames'
+import { useLobbyMusic } from '../hooks/useLobbyMusic'
 import { getCharacter } from '../config/characters'
-import { BurnerWallets } from './BurnerWallets'
-import { isLocal } from '../config/wagmi'
+import { VolumeControl } from './VolumeControl'
 
 interface BettingPanelProps {
   gameId: bigint
@@ -32,7 +31,7 @@ function getAgentStyle(colorKey: string) {
 const GUIDE_STEPS = [
   { num: 1, title: 'Pick a character', desc: 'Tap on your favorite player above' },
   { num: 2, title: 'Choose bet type', desc: 'Winner, First Death, or Over/Under' },
-  { num: 3, title: 'Set your wager', desc: 'Enter how much ETH to bet' },
+  { num: 3, title: 'Set your wager', desc: 'Enter how much MON to bet' },
   { num: 4, title: 'Place your bet!', desc: 'Confirm and watch the game unfold' },
 ]
 
@@ -119,6 +118,7 @@ function BettingCharacter({
 }
 
 export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
+  const { volume, setVolume } = useLobbyMusic()
   const { address: wallet } = useAccount()
   const betting = useBetting(gameId)
   const names = usePlayerNames(state.players)
@@ -177,30 +177,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
       <div className="fixed inset-0 z-0" style={{ background: "url('/bg-lobby.png') center/cover no-repeat" }} />
       <div className="fixed inset-0 z-0 bg-meadow/70" />
 
-      {/* Wallet not connected overlay */}
-      {!wallet && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-meadow/60 backdrop-blur-sm">
-          <div className="glass-panel p-8 max-w-md w-full mx-4 text-center space-y-5" style={{ background: 'rgba(255,253,245,0.95)' }}>
-            <div className="space-y-2">
-              <h2 className="font-display text-2xl text-text-dark">Connect Wallet</h2>
-              <p className="font-data text-sm text-text-light">
-                You need a connected wallet to place bets on this game.
-              </p>
-            </div>
-            <div className="flex justify-center">
-              {isLocal ? <BurnerWallets /> : <ConnectButton />}
-            </div>
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="font-display text-sm text-text-light hover:text-text-dark transition-colors cursor-pointer"
-              >
-                Back to Lobby
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Wallet not connected — inline hint instead of blocking overlay */}
 
       {/* Header row */}
       <header className="relative z-10 px-6 pt-4 pb-2">
@@ -240,7 +217,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
             {/* Game info */}
             <div className="text-right">
               <div className="font-data text-sm text-text-light">Game #{gameId.toString()}</div>
-              <div className="font-display text-xl text-gold leading-tight">{state.prizePoolFormatted} ETH</div>
+              <div className="font-display text-xl text-gold leading-tight">{state.prizePoolFormatted} MON</div>
             </div>
           </div>
         </div>
@@ -392,7 +369,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
           {/* Amount + submit */}
           <div className="flex items-end gap-4 pt-3 border-t-2 border-table-pink/30">
             <div className="flex-1 space-y-1">
-              <label className="font-display text-xs text-text-light">Bet Amount (ETH)</label>
+              <label className="font-display text-xs text-text-light">Bet Amount (MON)</label>
               <input
                 type="number"
                 step="0.001"
@@ -425,7 +402,7 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
           <div className="max-w-7xl mx-auto w-full glass-panel px-5 py-3" style={{ background: 'rgba(255,253,245,0.9)' }}>
             <div className="flex items-center justify-between mb-2">
               <span className="font-display text-sm text-text-dark">My Bets ({myBetsCount})</span>
-              <span className="font-data text-sm text-gold font-bold">{formatEther(myBetsTotal)} ETH</span>
+              <span className="font-data text-sm text-gold font-bold">{formatEther(myBetsTotal)} MON</span>
             </div>
             <div className="space-y-1.5">
               {betting.decodedBets.map((bet, i) => {
@@ -467,8 +444,13 @@ export function BettingPanel({ gameId, state, onBack }: BettingPanelProps) {
 
         {/* Pool info */}
         <div className="text-center font-data text-sm text-text-light pb-2">
-          Winner pool: {betting.winnerPoolFormatted} ETH
+          Winner pool: {betting.winnerPoolFormatted} MON
         </div>
+      </div>
+
+      {/* Volume control */}
+      <div className="fixed bottom-5 right-5 z-50">
+        <VolumeControl volume={volume} setVolume={setVolume} />
       </div>
     </div>
   )

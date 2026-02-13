@@ -32,7 +32,6 @@ export async function checkAndForceTimeout(gameId: bigint): Promise<boolean> {
         ...contract,
         functionName: 'forceTimeout',
         args: [gameId],
-        gas: 300_000n,
       } as any)
 
       await publicClient.waitForTransactionReceipt({ hash })

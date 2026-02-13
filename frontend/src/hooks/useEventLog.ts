@@ -183,7 +183,7 @@ export function useEventLog(
       addEvent('gameover', [
         seg('GAME OVER! '),
         winnerSeg,
-        seg(` wins! Prize: ${state.prizePoolFormatted} ETH`),
+        seg(` wins! Prize: ${state.prizePoolFormatted} MON`),
       ])
     }
   }, [state, prevState])
