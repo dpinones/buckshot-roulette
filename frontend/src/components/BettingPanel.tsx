@@ -1,15 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { type Address, parseEther, formatEther } from 'viem'
 import { useAccount } from 'wagmi'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { type GameState } from '../hooks/useGameState'
 import { useBetting } from '../hooks/useBetting'
 import { usePlayerNames } from '../hooks/usePlayerNames'
 import { useLobbyMusic } from '../hooks/useLobbyMusic'
 import { getCharacter } from '../config/characters'
 import { VolumeControl } from './VolumeControl'
-import { BurnerWallets } from './BurnerWallets'
-import { isLocal } from '../config/wagmi'
 
 interface BettingPanelProps {
   gameId: bigint
