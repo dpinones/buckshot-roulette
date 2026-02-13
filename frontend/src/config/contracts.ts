@@ -13,11 +13,11 @@ const ANVIL_ADDRESSES = {
 
 // Monad testnet addresses — update after deploying with `make deploy`
 const TESTNET_ADDRESSES = {
-  playerProfile: '0x486cDA4bB851C0A16c8D3feD9f28Ef77f850a42A' as const,
-  buckshotGame: '0x93f08E3AF423BEA46e9d50569b30a31Eb396D8cF' as const,
-  gameFactory: '0x7D82818e6374617A5f3cA43636bd6727d28ADA8c' as const,
-  buckshotWager: '0x23638C0be8841f4eaa8a4050f48519Cd8C0dc6f6' as const,
-  buckshotBetting: '0x0211F2B990CD8510F5DE96217E04fdb3c5A6F64d' as const,
+  playerProfile: '0x3F8495b51AE715B3E0dFE0D4243c7511b3D82044' as const,
+  buckshotGame: '0x0739327F110d19051Ce2B0B4275FbCa6d1638335' as const,
+  gameFactory: '0xD613fda1Ef2aA6852B0D1f797ea149ecF37c7A7d' as const,
+  buckshotWager: '0xfC0d4d9eFbE7b1f6e9eCa9cbD104FF4c37FF9c4a' as const,
+  buckshotBetting: '0xEBb575FA6a6c8e336fDbB2E191B219218FFC5BfE' as const,
 }
 
 export const ADDRESSES =

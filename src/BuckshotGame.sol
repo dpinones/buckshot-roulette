@@ -53,6 +53,7 @@ contract BuckshotGame {
     }
 
     PlayerProfile public profileContract;
+    address public owner;
 
     uint256 public nextGameId;
     uint256 public constant TURN_TIMEOUT = 20 seconds;
@@ -99,8 +100,14 @@ contract BuckshotGame {
     error InvalidPlayerCount();
     error BettingWindowActive();
     error GameNotWaiting();
+    error NotOwner();
 
     // ── Modifiers ───────────────────────────────────────────────
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
+
     modifier onlyCurrentTurn(uint256 gameId) {
         Game storage g = games[gameId];
         if (g.phase != GamePhase.ACTIVE) revert GameNotActive();
@@ -111,6 +118,7 @@ contract BuckshotGame {
     // ── Constructor ─────────────────────────────────────────────
     constructor(address _profileContract) {
         profileContract = PlayerProfile(_profileContract);
+        owner = msg.sender;
     }
 
     // ── Create Game (called by GameFactory) ─────────────────────
@@ -261,6 +269,38 @@ contract BuckshotGame {
         emit ShotFired(gameId, timedOut, timedOut, wasLive, wasLive ? damage : 0);
         _clearShellKnowledge(gameId, timedOut);
         _afterShot(gameId, false);
+    }
+
+    // ── Admin Functions ─────────────────────────────────────────
+
+    function cancelGame(uint256 gameId) external onlyOwner {
+        Game storage g = games[gameId];
+        if (g.phase == GamePhase.FINISHED) revert GameAlreadyFinished();
+
+        g.phase = GamePhase.FINISHED;
+
+        uint256 pool = g.prizePool;
+        g.prizePool = 0;
+
+        if (pool > 0 && g.aliveCount > 0) {
+            uint256 share = pool / g.aliveCount;
+            for (uint256 i = 0; i < g.players.length; i++) {
+                if (g.alive[i]) {
+                    (bool ok,) = g.players[i].call{value: share}("");
+                    require(ok, "Refund failed");
+                }
+            }
+        }
+
+        emit GameEnded(gameId, address(0), 0);
+    }
+
+    function cancelAllGames() external onlyOwner {
+        for (uint256 i = 0; i < nextGameId; i++) {
+            if (games[i].phase != GamePhase.FINISHED) {
+                this.cancelGame(i);
+            }
+        }
     }
 
     // ── View Functions ──────────────────────────────────────────
@@ -516,9 +556,9 @@ contract BuckshotGame {
         _nonce++;
         return min
             + uint8(
-            uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _nonce, msg.sender)))
-                % (max - min + 1)
-        );
+                uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _nonce, msg.sender)))
+                    % (max - min + 1)
+            );
     }
 
     receive() external payable {}

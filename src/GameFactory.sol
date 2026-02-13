@@ -8,6 +8,7 @@ contract GameFactory {
     // ── Storage ─────────────────────────────────────────────────
     BuckshotGame public gameContract;
     PlayerProfile public profileContract;
+    address public owner;
 
     uint8 public constant MIN_PLAYERS = 2;
     uint8 public constant MAX_PLAYERS = 6;
@@ -39,11 +40,19 @@ contract GameFactory {
     error NotEnoughPlayers();
     error TooManyPlayers();
     error NoProfile();
+    error NotOwner();
+
+    // ── Modifiers ───────────────────────────────────────────────
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
 
     // ── Constructor ─────────────────────────────────────────────
     constructor(address _gameContract, address _profileContract) {
         gameContract = BuckshotGame(payable(_gameContract));
         profileContract = PlayerProfile(_profileContract);
+        owner = msg.sender;
 
         // Default buy-in tiers
         uint256[4] memory tiers = [uint256(0.00001 ether), 0.01 ether, 0.1 ether, 1 ether];
@@ -119,6 +128,36 @@ contract GameFactory {
         isActiveGame[gameId] = true;
 
         emit GameCreated(gameId, players, buyIn);
+    }
+
+    // ── Admin Functions ─────────────────────────────────────────
+
+    function clearQueue(uint256 buyIn) external onlyOwner {
+        address[] storage queue = queues[buyIn];
+        for (uint256 i = 0; i < queue.length; i++) {
+            address player = queue[i];
+            isInQueue[player] = false;
+            playerQueueBuyIn[player] = 0;
+            (bool ok,) = player.call{value: buyIn}("");
+            require(ok, "Refund failed");
+        }
+        delete queues[buyIn];
+    }
+
+    function clearAllQueues() external onlyOwner {
+        for (uint256 i = 0; i < supportedBuyIns.length; i++) {
+            uint256 buyIn = supportedBuyIns[i];
+            if (queues[buyIn].length > 0) {
+                this.clearQueue(buyIn);
+            }
+        }
+    }
+
+    function clearActiveGames() external onlyOwner {
+        for (uint256 i = 0; i < activeGameIds.length; i++) {
+            isActiveGame[activeGameIds[i]] = false;
+        }
+        delete activeGameIds;
     }
 
     // ── View Functions ──────────────────────────────────────────

@@ -1,4 +1,4 @@
-.PHONY: build test fmt snapshot clean deploy deploy-local verify play play-testnet play-spectate install frontend-install frontend-dev spectate
+.PHONY: build test fmt snapshot clean deploy deploy-local verify play play-testnet play-spectate install frontend-install frontend-dev spectate cleanup cleanup-local
 
 # ── Config ──────────────────────────────────────────────────
 ANVIL_RPC  := http://127.0.0.1:8545
@@ -78,6 +78,18 @@ spectate:
 	@echo "  1. Terminal 1: make frontend-dev"
 	@echo "  2. Terminal 2: make play-spectate"
 	@echo "  Frontend en http://localhost:5173"
+
+cleanup:
+	forge script script/CleanupGames.s.sol \
+		--rpc-url $(MONAD_RPC) \
+		--account monad-deployer \
+		--broadcast
+
+cleanup-local:
+	FOUNDRY_CHAIN_ID=31337 forge script script/CleanupGames.s.sol \
+		--rpc-url $(ANVIL_RPC) \
+		--private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+		--broadcast
 
 # ── Monad Testnet ───────────────────────────────────────────
 

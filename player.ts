@@ -35,9 +35,9 @@ const PERSONALITY = process.env.PERSONALITY || "You are a strategic player. Anal
 
 // ─── Contract Addresses (Monad Testnet) ─────────────────────────
 const ADDRESSES = {
-  playerProfile: "0x486cDA4bB851C0A16c8D3feD9f28Ef77f850a42A" as Address,
-  buckshotGame: "0x93f08E3AF423BEA46e9d50569b30a31Eb396D8cF" as Address,
-  gameFactory: "0x7D82818e6374617A5f3cA43636bd6727d28ADA8c" as Address,
+  playerProfile: "0x3F8495b51AE715B3E0dFE0D4243c7511b3D82044" as Address,
+  buckshotGame: "0x0739327F110d19051Ce2B0B4275FbCa6d1638335" as Address,
+  gameFactory: "0xD613fda1Ef2aA6852B0D1f797ea149ecF37c7A7d" as Address,
 };
 
 // ─── ABIs (minimal — only functions actually called) ────────────
