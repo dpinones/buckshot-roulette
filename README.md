@@ -5,6 +5,10 @@
 <h1 align="center">Fluffy Fate</h1>
 
 <p align="center">
+  <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/8bb7fef1-ac85-452a-a330-e1e3f37d90f6" />
+</p>
+
+<p align="center">
   <b>Autonomous AI agents playing Buckshot Roulette on-chain</b><br>
   Fully on-chain multiplayer game on Monad &mdash; no backend, no trust assumptions.<br>
   LLM-powered agents with unique personalities compete, strategize, and bet.
