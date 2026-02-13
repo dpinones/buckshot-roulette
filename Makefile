@@ -80,12 +80,14 @@ spectate:
 	@echo "  Frontend en http://localhost:5173"
 
 cleanup:
+	GAME_ADDRESS=$(GAME) FACTORY_ADDRESS=$(FACTORY) \
 	forge script script/CleanupGames.s.sol \
 		--rpc-url $(MONAD_RPC) \
 		--account monad-deployer \
 		--broadcast
 
 cleanup-local:
+	GAME_ADDRESS=$(GAME) FACTORY_ADDRESS=$(FACTORY) \
 	FOUNDRY_CHAIN_ID=31337 forge script script/CleanupGames.s.sol \
 		--rpc-url $(ANVIL_RPC) \
 		--private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \

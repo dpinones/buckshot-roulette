@@ -274,6 +274,18 @@ contract BuckshotGame {
     // ── Admin Functions ─────────────────────────────────────────
 
     function cancelGame(uint256 gameId) external onlyOwner {
+        _cancelGame(gameId);
+    }
+
+    function cancelAllGames() external onlyOwner {
+        for (uint256 i = 0; i < nextGameId; i++) {
+            if (games[i].phase != GamePhase.FINISHED) {
+                _cancelGame(i);
+            }
+        }
+    }
+
+    function _cancelGame(uint256 gameId) internal {
         Game storage g = games[gameId];
         if (g.phase == GamePhase.FINISHED) revert GameAlreadyFinished();
 
@@ -293,14 +305,6 @@ contract BuckshotGame {
         }
 
         emit GameEnded(gameId, address(0), 0);
-    }
-
-    function cancelAllGames() external onlyOwner {
-        for (uint256 i = 0; i < nextGameId; i++) {
-            if (games[i].phase != GamePhase.FINISHED) {
-                this.cancelGame(i);
-            }
-        }
     }
 
     // ── View Functions ──────────────────────────────────────────

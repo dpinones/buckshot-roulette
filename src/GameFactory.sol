@@ -133,6 +133,19 @@ contract GameFactory {
     // ── Admin Functions ─────────────────────────────────────────
 
     function clearQueue(uint256 buyIn) external onlyOwner {
+        _clearQueue(buyIn);
+    }
+
+    function clearAllQueues() external onlyOwner {
+        for (uint256 i = 0; i < supportedBuyIns.length; i++) {
+            uint256 buyIn = supportedBuyIns[i];
+            if (queues[buyIn].length > 0) {
+                _clearQueue(buyIn);
+            }
+        }
+    }
+
+    function _clearQueue(uint256 buyIn) internal {
         address[] storage queue = queues[buyIn];
         for (uint256 i = 0; i < queue.length; i++) {
             address player = queue[i];
@@ -142,15 +155,6 @@ contract GameFactory {
             require(ok, "Refund failed");
         }
         delete queues[buyIn];
-    }
-
-    function clearAllQueues() external onlyOwner {
-        for (uint256 i = 0; i < supportedBuyIns.length; i++) {
-            uint256 buyIn = supportedBuyIns[i];
-            if (queues[buyIn].length > 0) {
-                this.clearQueue(buyIn);
-            }
-        }
     }
 
     function clearActiveGames() external onlyOwner {
