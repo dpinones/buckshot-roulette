@@ -12,27 +12,29 @@ function sleep(ms: number): Promise<void> {
 
 const factoryContract = { address: addresses.gameFactory as Address, abi: gameFactoryAbi } as const
 const profileContract = { address: addresses.playerProfile as Address, abi: playerProfileAbi } as const
+const gameContract = { address: addresses.buckshotGame as Address, abi: buckshotGameAbi } as const
 const buyIn = config.buyIn
 
-const WAIT_AFTER_JOIN_MS = 10_000 // wait 10s after detecting players before starting
-const MIN_PLAYERS = 4
-const RPC_DELAY_MS = 200 // delay between RPC calls to avoid 429 rate limits
-const POLL_INTERVAL_MS = 5_000 // how often to check the queue
+const POLL_MS = 5_000
+const RPC_DELAY_MS = 200
+
+// ── Helpers ───────────────────────────────────────────────────
 
 async function ensureReady(agent: Agent): Promise<boolean> {
   const balance = await publicClient.getBalance({ address: agent.address })
-  await sleep(RPC_DELAY_MS)
-  const hasProfile = await publicClient.readContract({
-    ...profileContract,
-    functionName: 'hasProfile',
-    args: [agent.address],
-  }) as boolean
   await sleep(RPC_DELAY_MS)
 
   if (balance < buyIn * 2n) {
     log.error(agent.name, `Insufficient balance: ${formatEther(balance)} MON`)
     return false
   }
+
+  const hasProfile = await publicClient.readContract({
+    ...profileContract,
+    functionName: 'hasProfile',
+    args: [agent.address],
+  }) as boolean
+  await sleep(RPC_DELAY_MS)
 
   if (!hasProfile) {
     try {
@@ -53,27 +55,6 @@ async function ensureReady(agent: Agent): Promise<boolean> {
   return true
 }
 
-async function leaveQueueIfStuck(agent: Agent): Promise<void> {
-  try {
-    const inQueue = await publicClient.readContract({
-      ...factoryContract,
-      functionName: 'isInQueue',
-      args: [agent.address],
-    }) as boolean
-    if (!inQueue) return
-
-    log.info(agent.name, 'Stuck in queue from previous run, leaving...')
-    const hash = await agent.walletClient.writeContract({
-      ...factoryContract,
-      functionName: 'leaveQueue',
-    } as any)
-    await publicClient.waitForTransactionReceipt({ hash })
-    log.info(agent.name, 'Left stale queue')
-  } catch {
-    // Best-effort cleanup; if it fails we'll handle it in joinAgent
-  }
-}
-
 async function joinAgent(agent: Agent): Promise<boolean> {
   try {
     const inQueue = await publicClient.readContract({
@@ -82,7 +63,10 @@ async function joinAgent(agent: Agent): Promise<boolean> {
       args: [agent.address],
     }) as boolean
 
-    if (inQueue) return true
+    if (inQueue) {
+      log.info(agent.name, 'Already in queue')
+      return true
+    }
 
     const hash = await agent.walletClient.writeContract({
       ...factoryContract,
@@ -92,14 +76,13 @@ async function joinAgent(agent: Agent): Promise<boolean> {
     } as any)
     const receipt = await publicClient.waitForTransactionReceipt({ hash })
     if (receipt.status === 'reverted') {
-      log.error(agent.name, `joinQueue tx reverted (${hash})`)
+      log.error(agent.name, `joinQueue tx reverted`)
       return false
     }
     log.info(agent.name, 'Joined queue')
     return true
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    // AlreadyInQueue (0xf91d7f9b) means the agent is in the queue — treat as success
     if (msg.includes('0xf91d7f9b') || msg.includes('AlreadyInQueue')) {
       log.info(agent.name, 'Already in queue (ok)')
       return true
@@ -115,86 +98,89 @@ async function getQueueLen(): Promise<number> {
       ...factoryContract,
       functionName: 'getQueueLength',
       args: [buyIn],
-    }) as bigint
+    }) as bigint,
   )
 }
 
-async function countAgentsInQueue(agents: Agent[]): Promise<number> {
-  let count = 0
-  for (const agent of agents) {
-    const inQueue = await publicClient.readContract({
-      ...factoryContract,
-      functionName: 'isInQueue',
-      args: [agent.address],
-    }) as boolean
-    if (inQueue) count++
-    await sleep(RPC_DELAY_MS)
-  }
-  return count
+async function getNextGameId(): Promise<bigint> {
+  return await publicClient.readContract({
+    ...gameContract,
+    functionName: 'nextGameId',
+  }) as bigint
 }
 
 /**
- * Watches the queue. When external players are detected, agents join
- * to fill spots. Waits 10s after reaching MIN_PLAYERS before starting
- * to give more players time to join.
+ * Check if a game was created (by someone else) that includes any of our agents.
+ * Scans games from `fromId` to current `nextGameId - 1`.
  */
-export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null> {
-  // Clean up agents stuck in queue from a previous run
-  for (const agent of agents) {
-    await leaveQueueIfStuck(agent)
+async function findGameWithAgents(agents: Agent[], fromId: bigint): Promise<bigint | null> {
+  const nextId = await getNextGameId()
+  const agentAddrs = new Set(agents.map((a) => a.address.toLowerCase()))
+
+  for (let id = fromId; id < nextId; id++) {
+    const players = await publicClient.readContract({
+      ...gameContract,
+      functionName: 'getPlayers',
+      args: [id],
+    }) as Address[]
+
+    const hasAgent = players.some((p) => agentAddrs.has(p.toLowerCase()))
+    if (hasAgent) {
+      log.game(`Found game #${id} (created externally) with our agents`)
+      return id
+    }
     await sleep(RPC_DELAY_MS)
   }
 
-  for (const agent of agents) {
-    const ready = await ensureReady(agent)
-    if (!ready) return null
-  }
+  return null
+}
 
-  log.system(`Watching queue (buy-in: ${formatEther(buyIn)} MON)... waiting for external players`)
+// ── Public API ────────────────────────────────────────────────
+
+/**
+ * One-time startup: check balance & create profiles for all agents.
+ */
+export async function ensureAllReady(agents: Agent[]): Promise<boolean> {
+  for (const agent of agents) {
+    const ok = await ensureReady(agent)
+    if (!ok) return false
+  }
+  return true
+}
+
+/**
+ * Watch the queue. When an external player is detected:
+ * 1. Save nextGameId (to detect games created by others)
+ * 2. Agents join the queue
+ * 3. Try to start the game
+ * 4. If queue emptied (someone else started) → find that game
+ */
+export async function watchQueueAndPlay(agents: Agent[]): Promise<bigint | null> {
+  log.system(`Watching queue (buy-in: ${formatEther(buyIn)} MON)... waiting for players`)
 
   while (true) {
     const queueLen = await getQueueLen()
-    await sleep(RPC_DELAY_MS)
-    const agentsInQueue = await countAgentsInQueue(agents)
-    const externalPlayers = queueLen - agentsInQueue
 
-    if (externalPlayers > 0) {
-      log.system(`Detected ${externalPlayers} external player(s) in queue (${queueLen} total)`)
+    if (queueLen > 0) {
+      log.system(`Detected ${queueLen} player(s) in queue!`)
 
-      // Join agents to fill remaining spots up to MIN_PLAYERS
-      const spotsToFill = Math.max(0, MIN_PLAYERS - queueLen)
-      let joined = 0
+      // Save nextGameId before joining so we can detect externally-created games
+      const nextIdBefore = await getNextGameId()
+
+      // Agents join to fill the queue
+      log.system('Agents joining queue...')
       for (const agent of agents) {
-        if (joined >= spotsToFill) break
-        const inQueue = await publicClient.readContract({
-          ...factoryContract,
-          functionName: 'isInQueue',
-          args: [agent.address],
-        }) as boolean
+        await joinAgent(agent)
         await sleep(RPC_DELAY_MS)
-        if (inQueue) continue
-        const ok = await joinAgent(agent)
-        if (ok) joined++
-        await sleep(1000)
       }
 
-      // Wait for RPC to catch up with recent join txs (Monad testnet needs extra time)
-      await sleep(5000)
-      const afterJoinLen = await getQueueLen()
+      // Small delay for RPC to sync, then try to start
+      await sleep(2000)
 
-      if (afterJoinLen >= MIN_PLAYERS) {
-        // Wait 10s to let more players join
-        log.system(`${afterJoinLen} players in queue. Waiting 10s before starting...`)
-        await sleep(WAIT_AFTER_JOIN_MS)
+      const finalLen = await getQueueLen()
 
-        // Final check — start with however many are in the queue now (min 4, max 6)
-        const finalLen = await getQueueLen()
-        if (finalLen < MIN_PLAYERS) {
-          log.system(`Queue dropped to ${finalLen}, players may have left. Continuing to watch...`)
-          await sleep(POLL_INTERVAL_MS)
-          continue
-        }
-
+      if (finalLen >= 2) {
+        // We can start the game
         const startWith = Math.min(finalLen, 6)
         log.system(`Starting game with ${startWith} players`)
 
@@ -206,26 +192,27 @@ export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null
           } as any)
           await publicClient.waitForTransactionReceipt({ hash })
 
-          const gameContract = { address: addresses.buckshotGame as Address, abi: buckshotGameAbi } as const
-          const nextId = await publicClient.readContract({
-            ...gameContract,
-            functionName: 'nextGameId',
-          }) as bigint
-
-          const gameId = nextId - 1n
+          const gameId = (await getNextGameId()) - 1n
           log.game(`Game #${gameId} created!`)
           return gameId
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e)
-          log.warn('Matchmaker', `startGame failed: ${msg.slice(0, 80)}. Retrying...`)
-          await sleep(POLL_INTERVAL_MS)
-          continue
+          log.warn('Matchmaker', `startGame failed: ${msg.slice(0, 100)}`)
+          // Someone else may have started it — fall through to check
         }
-      } else {
-        log.system(`Queue at ${afterJoinLen}/${MIN_PLAYERS}, waiting for more players...`)
       }
+
+      // Queue is empty or startGame failed → someone else created the game
+      log.system('Queue emptied — checking if a game was created externally...')
+      await sleep(2000)
+      const gameId = await findGameWithAgents(agents, nextIdBefore)
+      if (gameId !== null) {
+        return gameId
+      }
+
+      log.system('No game found with our agents, continuing to watch...')
     }
 
-    await sleep(POLL_INTERVAL_MS)
+    await sleep(POLL_MS)
   }
 }
