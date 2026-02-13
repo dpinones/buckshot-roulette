@@ -143,8 +143,9 @@ async function findGameWithAgents(agents: Agent[]): Promise<bigint | null> {
     const gameContract = { address: addresses.buckshotGame as Address, abi: buckshotGameAbi } as const
     const agentAddrs = new Set(agents.map((a) => a.address.toLowerCase()))
 
-    for (const gameId of activeGameIds) {
-      if (gameId < 17n) continue
+    // Search from newest to oldest — the game we're looking for is the most recent one
+    for (let i = activeGameIds.length - 1; i >= 0; i--) {
+      const gameId = activeGameIds[i]
       await sleep(RPC_DELAY_MS)
       const players = await publicClient.readContract({
         ...gameContract,
@@ -183,10 +184,6 @@ export async function waitAndCreateMatch(agents: Agent[]): Promise<bigint | null
   }
 
   log.system(`Watching queue (buy-in: ${formatEther(buyIn)} MON)... waiting for external players`)
-
-  // Check if agents are already in a game (created before this run started)
-  const existingGame = await findGameWithAgents(agents)
-  if (existingGame !== null) return existingGame
 
   while (true) {
     const queueLen = await getQueueLen()
