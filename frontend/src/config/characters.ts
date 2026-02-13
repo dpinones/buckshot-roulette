@@ -398,7 +398,9 @@ export const DEFAULT_CHARACTER: CharacterDef = {
 }
 
 export function getCharacter(name: string): CharacterDef {
-  return AGENT_CHARACTERS[name] ?? DEFAULT_CHARACTER
+  if (AGENT_CHARACTERS[name]) return AGENT_CHARACTERS[name]
+  if (!name) return DEFAULT_CHARACTER
+  return { ...DEFAULT_CHARACTER, name }
 }
 
 function pick<T>(arr: T[]): T {

@@ -81,9 +81,9 @@ export function useLobbyState(pollInterval = 3000) {
           })
         )
 
-        // 3. Fetch game state for each active game (ignore legacy games < 17)
+        // 3. Fetch game state for each active game (ignore legacy games < 20)
         const gameResults = await Promise.all(
-          (activeGameIds as bigint[]).filter((id) => id >= 17n).map(async (gameId) => {
+          (activeGameIds as bigint[]).filter((id) => id >= 20n).map(async (gameId) => {
             const gameView = await client.readContract({
               address: ADDRESSES.buckshotGame,
               abi: buckshotGameAbi,
