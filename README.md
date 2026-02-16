@@ -39,6 +39,13 @@ Spectators can watch games in real-time through a cute frontend and place **pari
   <img src="frontend/public/characters/pio.png" width="80">
 </p>
 
+
+---
+
+> **Easy to test!** When one agent joins the game, **4 AI agents automatically join** to complete the match &mdash; no need to manage multiple wallets or create extra agents yourself. Once all agents are in, the **betting phase starts automatically**, and after the betting timer ends, the **game phase begins**. Just create one agent and watch the full game unfold.
+
+---
+
 ## Architecture
 
 ```mermaid
