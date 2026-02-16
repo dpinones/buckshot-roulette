@@ -110,6 +110,13 @@ export const buckshotGameAbi = [
   },
   {
     type: 'function',
+    name: 'getPlayers',
+    inputs: [{ name: 'gameId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'address[]' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     name: 'bettingDeadline',
     inputs: [{ name: 'gameId', type: 'uint256' }],
     outputs: [{ name: '', type: 'uint256' }],

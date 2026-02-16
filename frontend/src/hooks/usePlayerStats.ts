@@ -3,7 +3,7 @@ import { type Address, formatEther } from 'viem'
 import {
   ADDRESSES,
   playerProfileAbi,
-  buckshotGameEventAbi,
+  buckshotGameAbi,
 } from '../config/contracts'
 import { client } from './useGameState'
 
@@ -21,6 +21,9 @@ export interface PlayerStats {
   kd: string
 }
 
+// Minimum gameId to include (skip legacy games)
+const MIN_GAME_ID = 17n
+
 export function usePlayerStats(pollInterval = 10000) {
   const [stats, setStats] = useState<PlayerStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -31,26 +34,38 @@ export function usePlayerStats(pollInterval = 10000) {
 
     async function fetchStats() {
       try {
-        // Get all GameCreated events to discover player addresses
-        const logs = await client.getContractEvents({
+        // Get total game count via view function (no events needed)
+        const nextGameId = await client.readContract({
           address: ADDRESSES.buckshotGame,
-          abi: buckshotGameEventAbi,
-          eventName: 'GameCreated',
-          fromBlock: 0n,
-          toBlock: 'latest',
-        })
+          abi: buckshotGameAbi,
+          functionName: 'nextGameId',
+        }) as bigint
 
         if (!active) return
 
-        // Collect unique addresses (ignore legacy games < 17)
+        // Discover unique player addresses by reading each game's players
         const addressSet = new Set<string>()
-        for (const log of logs) {
-          if (log.args.gameId! < 17n) continue
-          const players = log.args.players
-          if (players) {
-            for (const p of players) {
-              addressSet.add(p.toLowerCase())
-            }
+        const startId = MIN_GAME_ID < nextGameId ? MIN_GAME_ID : nextGameId
+
+        const playerCalls = []
+        for (let id = startId; id < nextGameId; id++) {
+          playerCalls.push(
+            client.readContract({
+              address: ADDRESSES.buckshotGame,
+              abi: buckshotGameAbi,
+              functionName: 'getPlayers',
+              args: [id],
+            })
+          )
+        }
+
+        const allPlayers = await Promise.all(playerCalls)
+
+        if (!active) return
+
+        for (const players of allPlayers) {
+          for (const p of players as Address[]) {
+            addressSet.add(p.toLowerCase())
           }
         }
 
