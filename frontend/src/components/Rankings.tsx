@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { type Address } from 'viem'
 import { usePlayerStats, type PlayerStats } from '../hooks/usePlayerStats'
-import { useGameHistory } from '../hooks/useGameHistory'
+// import { useGameHistory } from '../hooks/useGameHistory'
 import { usePlayerNames } from '../hooks/usePlayerNames'
 import { getCharacter } from '../config/characters'
 
@@ -18,7 +18,7 @@ type SortKey = 'gamesWon' | 'kills' | 'winRate' | 'totalEarnings' | 'gamesPlayed
 
 export function Rankings({ onBack, onReplay }: RankingsProps) {
   const { stats, loading, error } = usePlayerStats(10000)
-  const { games: finishedGames, loading: gamesLoading } = useGameHistory(10000)
+  // const { games: finishedGames, loading: gamesLoading } = useGameHistory(10000)
   const [sortBy, setSortBy] = useState<SortKey>('gamesWon')
 
   const allAddresses = useMemo(
@@ -122,60 +122,7 @@ export function Rankings({ onBack, onReplay }: RankingsProps) {
             )}
           </section>
 
-          {/* Recent Games */}
-          <section>
-            <div className="flex items-center gap-3 mb-5">
-              <h2 className="font-display text-lg text-text-dark">
-                Recent Games
-              </h2>
-              <div className="flex-1 h-0.5 bg-paper-shadow/40" />
-              <span className="font-data text-[11px] text-text-light">
-                {finishedGames.length} finished
-              </span>
-            </div>
-
-            {gamesLoading ? (
-              <div className="text-center py-8 font-data text-text-light animate-pulse">
-                Loading...
-              </div>
-            ) : finishedGames.length === 0 ? (
-              <div className="text-center py-8 font-data text-text-light/60">
-                No finished games
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {finishedGames.map((game) => (
-                  <button
-                    key={game.id.toString()}
-                    onClick={() => onReplay?.(game.id)}
-                    className="w-full text-left bg-paper border-2 border-paper-shadow/40 rounded-[12px] px-4 py-3 flex items-center gap-4
-                               hover:border-gold hover:shadow-[0_0_10px_rgba(255,215,0,0.15)] transition-all duration-200 cursor-pointer group
-                               shadow-[2px_2px_0_var(--color-paper-shadow)]"
-                  >
-                    <span className="font-display text-sm text-text-dark w-24">
-                      Game #{game.id.toString()}
-                    </span>
-                    <span className="font-data text-[11px] text-text-light">
-                      {game.playerCount} players
-                    </span>
-                    <div className="flex-1" />
-                    <span className="font-data text-[11px] text-text-light">
-                      Winner:
-                    </span>
-                    <span className="font-data text-[11px] text-gold font-bold">
-                      {shortAddr(game.winner)}
-                    </span>
-                    <span className="font-display text-sm text-gold">
-                      {game.prizeFormatted} MON
-                    </span>
-                    <span className="font-display text-[10px] text-transparent group-hover:text-gold transition-colors ml-2">
-                      REPLAY
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
+          {/* Recent Games - commented out to reduce RPC requests */}
         </div>
       </main>
     </div>
