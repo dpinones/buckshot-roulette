@@ -16,7 +16,7 @@ function shortAddr(addr: string): string {
 
 type SortKey = 'gamesWon' | 'kills' | 'winRate' | 'totalEarnings' | 'gamesPlayed' | 'kd'
 
-export function Rankings({ onBack, onReplay }: RankingsProps) {
+export function Rankings({ onBack, onReplay: _onReplay }: RankingsProps) {
   const { stats, loading, error } = usePlayerStats(10000)
   // const { games: finishedGames, loading: gamesLoading } = useGameHistory(10000)
   const [sortBy, setSortBy] = useState<SortKey>('gamesWon')
